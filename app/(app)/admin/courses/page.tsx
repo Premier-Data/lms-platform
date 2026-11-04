@@ -1,7 +1,7 @@
 import { BookOpen, Archive } from "lucide-react";
 import { createClient } from "@/lib/supabase/server";
 import { CreateCourseButton } from "@/components/create-course-button";
-import { CourseCard } from "@/components/course-card";
+import { CourseBuilderGrid } from "@/components/course-builder-grid";
 
 export default async function CourseBuilderPage() {
   const supabase = await createClient();
@@ -87,28 +87,21 @@ export default async function CourseBuilderPage() {
           </div>
         </div>
       ) : (
-        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-          {courses.map((course) => {
-            const categoryNames = (course.course_category_links ?? [])
+        <CourseBuilderGrid
+          courses={courses.map((course) => ({
+            id: course.id,
+            title: course.title,
+            status: course.status,
+            thumbnailUrl: course.thumbnail_url,
+            description: course.description,
+            categoryNames: (course.course_category_links ?? [])
               .map((link) => {
                 const cc = link.course_categories;
                 return Array.isArray(cc) ? cc[0]?.name : cc?.name;
               })
-              .filter((n): n is string => Boolean(n));
-
-            return (
-              <CourseCard
-                key={course.id}
-                id={course.id}
-                title={course.title}
-                status={course.status}
-                thumbnailUrl={course.thumbnail_url}
-                description={course.description}
-                categoryNames={categoryNames}
-              />
-            );
-          })}
-        </div>
+              .filter((n): n is string => Boolean(n)),
+          }))}
+        />
       )}
     </div>
   );
