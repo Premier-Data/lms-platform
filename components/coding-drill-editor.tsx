@@ -125,31 +125,30 @@ export function CodingDrillEditor({ value, onChange }: Props) {
 
       {config.videoUrl && (
         <>
-          {/* Video preview with stat overlay, used to build the master
-              timeline (same interaction learners get). */}
-          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
-            <DrillVideo
-              ref={videoRef}
-              url={config.videoUrl}
-              start={config.startTime}
-              end={config.endTime}
-              className="h-full w-full"
-            />
-            <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 px-3">
-              <div className="pointer-events-auto flex flex-wrap justify-center gap-2 rounded-xl bg-black/45 p-2 backdrop-blur-sm">
-                {config.stats.map((stat) => (
-                  <div key={stat} className="group relative">
-                    <button
-                      type="button"
-                      onClick={() => logMaster(stat)}
-                      className="rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-md ring-1 ring-white/20 transition hover:scale-105 hover:opacity-95"
-                      style={{ backgroundColor: statColor(stat) }}
-                    >
-                      {stat}
-                    </button>
-                  </div>
-                ))}
-              </div>
+          {/* Video + vertical stat column, used to build the master timeline
+              (same interaction learners get). */}
+          <div className="flex overflow-hidden rounded-xl border border-slate-200 bg-black">
+            <div className="relative aspect-video min-w-0 flex-1">
+              <DrillVideo
+                ref={videoRef}
+                url={config.videoUrl}
+                start={config.startTime}
+                end={config.endTime}
+                className="h-full w-full"
+              />
+            </div>
+            <div className="flex w-32 shrink-0 flex-col gap-1.5 overflow-y-auto bg-slate-50 p-2">
+              {config.stats.map((stat) => (
+                <button
+                  key={stat}
+                  type="button"
+                  onClick={() => logMaster(stat)}
+                  className="rounded-lg px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
+                  style={{ backgroundColor: statColor(stat) }}
+                >
+                  {stat}
+                </button>
+              ))}
             </div>
           </div>
 
