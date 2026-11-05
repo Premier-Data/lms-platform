@@ -10,6 +10,10 @@ import { EditCourseDetails } from "@/components/edit-course-details";
 import { ModuleMenu } from "@/components/module-menu";
 import { ModuleLessons } from "@/components/module-lessons";
 
+// Always render fresh so newly added modules/lessons appear immediately after
+// router.refresh() (no stale route/data cache).
+export const dynamic = "force-dynamic";
+
 type CourseEditorPageProps = {
   params: Promise<{
     id: string;

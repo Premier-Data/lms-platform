@@ -3,6 +3,8 @@ import { createClient } from "@/lib/supabase/server";
 import { CreateCourseButton } from "@/components/create-course-button";
 import { CourseBuilderGrid } from "@/components/course-builder-grid";
 
+export const dynamic = "force-dynamic";
+
 export default async function CourseBuilderPage() {
   const supabase = await createClient();
 
