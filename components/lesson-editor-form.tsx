@@ -15,12 +15,14 @@ import {
   ChevronUp,
   ChevronDown,
   GripVertical,
+  Film,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { createClient } from "@/lib/supabase/client";
 import { ImageUpload } from "@/components/image-upload";
 import { LessonPreview } from "@/components/lesson-preview";
 import { VideoUpload } from "@/components/video-upload";
+import { CodingDrillEditor } from "@/components/coding-drill-editor";
 
 type Lesson = {
   id: string;
@@ -53,7 +55,7 @@ type LessonEditorFormProps = {
   courseId: string;
 };
 
-type NewBlockType = "heading" | "text" | "image" | "video";
+type NewBlockType = "heading" | "text" | "image" | "video" | "coding_drill";
 
 export function LessonEditorForm({
   lesson,
@@ -744,6 +746,15 @@ export function LessonEditorForm({
                                   }
                                 />
                               )}
+
+                              {block.block_type === "coding_drill" && (
+                                <CodingDrillEditor
+                                  value={block.content}
+                                  onChange={(serialized) =>
+                                    updateBlock(block.id, serialized)
+                                  }
+                                />
+                              )}
                             </div>
                           </div>
                         )
@@ -801,6 +812,22 @@ export function LessonEditorForm({
                         <Video size={20} />
                         <span className="text-sm font-medium">
                           Video
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          addBlock("coding_drill")
+                        }
+                        className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left hover:bg-slate-50 sm:col-span-2"
+                      >
+                        <Film size={20} />
+                        <span className="text-sm font-medium">
+                          Coding Drill{" "}
+                          <span className="font-normal text-slate-400">
+                            (video + stats, graded)
+                          </span>
                         </span>
                       </button>
                     </div>

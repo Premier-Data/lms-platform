@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { QuizTaker } from "@/components/quiz-taker";
+import { CodingDrillPlayer } from "@/components/coding-drill-player";
 
 type Course = {
   id: string;
@@ -547,6 +548,10 @@ function ContentBlock({ block }: { block: Block }) {
         <video src={block.content} controls className="h-full w-full" />
       </div>
     );
+  }
+
+  if (block.block_type === "coding_drill") {
+    return <CodingDrillPlayer blockId={block.id} content={block.content} />;
   }
 
   return (

@@ -381,6 +381,18 @@ function PreviewBlock({
     );
   }
 
+  if (block.block_type === "coding_drill") {
+    return (
+      <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-5 text-center text-sm text-slate-500">
+        <p className="font-medium text-slate-700">Coding Drill</p>
+        <p className="mt-1 text-xs">
+          Learners watch the video and click stats to build a timeline, graded
+          against your master. Interactive in the live lesson.
+        </p>
+      </div>
+    );
+  }
+
   return (
     <div className="rounded-xl bg-slate-100 p-4 text-sm text-slate-500">
       {block.content || "Empty block"}
