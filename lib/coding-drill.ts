@@ -182,7 +182,11 @@ export function gradeDrill(
   const missed = masterSorted.length - exact;
   const extra = learner.length - usedLearner.size;
   const masterTotal = masterSorted.length;
-  const accuracy = masterTotal > 0 ? exact / masterTotal : 0;
+  // Accuracy penalises BOTH missed master events and extra (wrong) clicks:
+  // correct out of (everything they should have caught + everything they
+  // wrongly added). So each miss and each extra each cost one.
+  const denom = masterTotal + extra;
+  const accuracy = denom > 0 ? exact / denom : 0;
 
   return { exact, missed, extra, masterTotal, accuracy, detail };
 }

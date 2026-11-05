@@ -252,8 +252,10 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
               <span className="text-emerald-600">
                 {result.exact} correct
               </span>
-              <span className="text-slate-500">{result.missed} missed</span>
-              <span className="text-purple-600">{result.extra} extra</span>
+              <span className="text-red-500">{result.missed} missed</span>
+              <span className="text-red-500">
+                {result.extra} extra (incorrect)
+              </span>
             </div>
             <span className="ml-auto text-xs text-slate-400">
               Attempt {attemptCount}
