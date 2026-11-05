@@ -26,6 +26,8 @@ export default async function ReportsPage() {
     { data: allAttempts },
     { data: allAnswers },
     { data: allQuestions },
+    { data: allDrillAttempts },
+    { data: allLessons },
   ] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from("courses").select("id, title, status"),
@@ -46,6 +48,13 @@ export default async function ReportsPage() {
     supabase
       .from("quiz_questions")
       .select("id, lesson_id, question_text, question_type"),
+    // Coding drill attempts (may not exist in older environments → ignore error)
+    supabase
+      .from("coding_drill_attempts")
+      .select(
+        "id, block_id, user_id, accuracy, exact, missed, extra, created_at"
+      ),
+    supabase.from("lessons").select("id, title, lesson_type"),
   ]);
 
   const users = allUsers?.users ?? [];
@@ -240,6 +249,86 @@ export default async function ReportsPage() {
     .filter((q) => q.totalAnswers > 0)
     .sort((a, b) => (b.accuracy ?? 0) - (a.accuracy ?? 0));
 
+  // --- Coding Drill Analytics ---
+  const drillAttempts = allDrillAttempts ?? [];
+  const lessons = allLessons ?? [];
+
+  // Resolve a readable drill title from block_id. For lesson-type drills the
+  // block_id IS the lesson id; otherwise fall back to a short id.
+  const lessonTitleById = new Map(
+    lessons.map((l) => [l.id as string, l.title as string])
+  );
+  const drillTitle = (blockId: string) =>
+    lessonTitleById.get(blockId) ?? `Drill ${blockId.slice(0, 8)}`;
+
+  // User display names.
+  const userNameById = new Map(
+    users.map((u) => [
+      u.id,
+      (u.user_metadata?.full_name as string) ?? u.email ?? "Unknown",
+    ])
+  );
+
+  // Per-drill summary (grouped by block_id).
+  const drillSummary = Array.from(
+    drillAttempts.reduce((map, a) => {
+      const key = a.block_id as string;
+      const entry = map.get(key) ?? {
+        blockId: key,
+        attempts: 0,
+        learners: new Set<string>(),
+        accSum: 0,
+        best: 0,
+      };
+      entry.attempts += 1;
+      entry.learners.add(a.user_id as string);
+      entry.accSum += (a.accuracy as number) ?? 0;
+      entry.best = Math.max(entry.best, (a.accuracy as number) ?? 0);
+      map.set(key, entry);
+      return map;
+    }, new Map<string, { blockId: string; attempts: number; learners: Set<string>; accSum: number; best: number }>())
+    .values()
+  )
+    .map((d) => ({
+      blockId: d.blockId,
+      title: drillTitle(d.blockId),
+      attempts: d.attempts,
+      uniqueLearners: d.learners.size,
+      avgAccuracy: d.attempts > 0 ? Math.round(d.accSum / d.attempts) : 0,
+      bestAccuracy: d.best,
+    }))
+    .sort((a, b) => b.attempts - a.attempts);
+
+  // Recent attempts (most recent first) for a live feed.
+  const recentDrillAttempts = [...drillAttempts]
+    .sort(
+      (a, b) =>
+        new Date(b.created_at as string).getTime() -
+        new Date(a.created_at as string).getTime()
+    )
+    .slice(0, 25)
+    .map((a) => ({
+      id: a.id as string,
+      learner: userNameById.get(a.user_id as string) ?? "Unknown",
+      drill: drillTitle(a.block_id as string),
+      accuracy: (a.accuracy as number) ?? 0,
+      exact: (a.exact as number) ?? 0,
+      missed: (a.missed as number) ?? 0,
+      extra: (a.extra as number) ?? 0,
+      when: a.created_at as string,
+    }));
+
+  const drillTotalAttempts = drillAttempts.length;
+  const drillAvgAccuracy =
+    drillTotalAttempts > 0
+      ? Math.round(
+          drillAttempts.reduce(
+            (s, a) => s + ((a.accuracy as number) ?? 0),
+            0
+          ) / drillTotalAttempts
+        )
+      : 0;
+
   return (
     <div className="mx-auto max-w-7xl space-y-8">
       <div>
@@ -393,6 +482,159 @@ export default async function ReportsPage() {
                             ? `${Math.round(q.avgTimeSeconds / 60)}m ${q.avgTimeSeconds % 60}s`
                             : `${q.avgTimeSeconds}s`
                           : "—"}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+        </section>
+      )}
+
+      {/* Coding Drill Analytics */}
+      {drillTotalAttempts > 0 && (
+        <section>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-lg font-semibold text-slate-900">
+              Coding Drill Performance
+            </h2>
+            <div className="flex gap-3 text-sm text-slate-500">
+              <span>
+                {drillTotalAttempts} attempt
+                {drillTotalAttempts !== 1 ? "s" : ""}
+              </span>
+              <span>
+                Avg accuracy{" "}
+                <span className="font-semibold text-slate-700">
+                  {drillAvgAccuracy}%
+                </span>
+              </span>
+            </div>
+          </div>
+
+          {/* Per-drill summary */}
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="overflow-x-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="border-b border-slate-200 bg-slate-50">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Drill
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Attempts
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Learners
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Avg Accuracy
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Best
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {drillSummary.map((d) => (
+                    <tr key={d.blockId} className="hover:bg-slate-50/60">
+                      <td className="px-5 py-3 font-medium text-slate-900">
+                        {d.title}
+                      </td>
+                      <td className="px-5 py-3 text-slate-700">
+                        {d.attempts}
+                      </td>
+                      <td className="px-5 py-3 text-slate-700">
+                        {d.uniqueLearners}
+                      </td>
+                      <td className="px-5 py-3">
+                        <span
+                          className={`font-semibold ${
+                            d.avgAccuracy >= 90
+                              ? "text-emerald-600"
+                              : d.avgAccuracy >= 70
+                                ? "text-amber-600"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {d.avgAccuracy}%
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-slate-700">
+                        {d.bestAccuracy}%
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
+
+          {/* Recent attempts */}
+          <h3 className="mb-3 mt-6 text-sm font-semibold text-slate-700">
+            Recent attempts
+          </h3>
+          <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+            <div className="max-h-[420px] overflow-auto">
+              <table className="w-full text-left text-sm">
+                <thead className="sticky top-0 z-10 border-b border-slate-200 bg-slate-50">
+                  <tr>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Learner
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Drill
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Accuracy
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Correct
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Missed
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      Extra
+                    </th>
+                    <th className="px-5 py-3 font-semibold text-slate-700">
+                      When
+                    </th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-slate-100">
+                  {recentDrillAttempts.map((a) => (
+                    <tr key={a.id} className="hover:bg-slate-50/60">
+                      <td className="px-5 py-3 font-medium text-slate-900">
+                        {a.learner}
+                      </td>
+                      <td className="px-5 py-3 text-slate-600">{a.drill}</td>
+                      <td className="px-5 py-3">
+                        <span
+                          className={`font-semibold ${
+                            a.accuracy >= 90
+                              ? "text-emerald-600"
+                              : a.accuracy >= 70
+                                ? "text-amber-600"
+                                : "text-red-600"
+                          }`}
+                        >
+                          {a.accuracy}%
+                        </span>
+                      </td>
+                      <td className="px-5 py-3 text-emerald-700">{a.exact}</td>
+                      <td className="px-5 py-3 text-red-500">{a.missed}</td>
+                      <td className="px-5 py-3 text-red-500">{a.extra}</td>
+                      <td className="whitespace-nowrap px-5 py-3 text-slate-500">
+                        {new Date(a.when).toLocaleDateString(undefined, {
+                          day: "2-digit",
+                          month: "short",
+                        })}{" "}
+                        {new Date(a.when).toLocaleTimeString(undefined, {
+                          hour: "2-digit",
+                          minute: "2-digit",
+                        })}
                       </td>
                     </tr>
                   ))}
