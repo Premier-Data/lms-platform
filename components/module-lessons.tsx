@@ -8,6 +8,7 @@ import {
   Video,
   HelpCircle,
   ClipboardCheck,
+  Film,
   GripVertical,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
@@ -32,6 +33,7 @@ function LessonIcon({ type }: { type: string }) {
   if (type === "quiz") return <HelpCircle size={19} className={className} />;
   if (type === "assessment")
     return <ClipboardCheck size={19} className={className} />;
+  if (type === "coding_drill") return <Film size={19} className={className} />;
   return <FileText size={19} className={className} />;
 }
 

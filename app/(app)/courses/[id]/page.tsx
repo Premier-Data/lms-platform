@@ -150,7 +150,7 @@ export default async function CourseViewerPage({
     moduleIds.length > 0
       ? await supabase
           .from("lessons")
-          .select("id, module_id, title, lesson_type, position")
+          .select("id, module_id, title, lesson_type, position, content")
           .in("module_id", moduleIds)
           .order("position", { ascending: true })
       : { data: [] };

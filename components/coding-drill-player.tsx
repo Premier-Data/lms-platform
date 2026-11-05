@@ -14,9 +14,11 @@ import {
 type Props = {
   blockId: string;
   content: string | null;
+  /** fired after a successful grade+submit (used to mark the lesson complete) */
+  onGraded?: () => void;
 };
 
-export function CodingDrillPlayer({ blockId, content }: Props) {
+export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   const config = useMemo(() => parseDrillConfig(content), [content]);
   const videoRef = useRef<HTMLVideoElement>(null);
 
@@ -77,6 +79,7 @@ export function CodingDrillPlayer({ blockId, content }: Props) {
       // Non-fatal: grading still shows locally even if save fails.
     }
     setSubmitting(false);
+    onGraded?.();
   }
 
   function retry() {

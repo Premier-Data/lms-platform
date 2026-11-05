@@ -13,6 +13,7 @@ import {
   Video,
   HelpCircle,
   ClipboardCheck,
+  Film,
   Loader2,
   Save,
 } from "lucide-react";
@@ -33,6 +34,7 @@ type Lesson = {
   title: string;
   lesson_type: string;
   position: number;
+  content?: string | null;
 };
 type Page = {
   id: string;
@@ -384,6 +386,36 @@ export function CourseViewer({
                 }
               }}
             />
+          ) : activeLesson.lesson_type === "coding_drill" ? (
+            <div className="p-6">
+              <div className="mb-5">
+                <h2 className="text-lg font-semibold text-slate-900">
+                  {activeLesson.title}
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  Watch the video and click a stat the moment it happens, then
+                  submit to be graded.
+                </p>
+              </div>
+              <CodingDrillPlayer
+                key={activeLesson.id}
+                blockId={activeLesson.id}
+                content={
+                  typeof activeLesson.content === "string"
+                    ? activeLesson.content
+                    : activeLesson.content
+                      ? JSON.stringify(activeLesson.content)
+                      : null
+                }
+                onGraded={() => {
+                  setCompletedLessons((prev) => {
+                    const next = new Set(prev);
+                    next.add(activeLesson.id);
+                    return next;
+                  });
+                }}
+              />
+            </div>
           ) : (
             <>
               <div className="border-b border-slate-200 px-8 py-5">
@@ -514,6 +546,7 @@ function LessonIcon({ type, active }: { type: string; active: boolean }) {
   if (type === "quiz") return <HelpCircle size={16} className={cls} />;
   if (type === "assessment")
     return <ClipboardCheck size={16} className={cls} />;
+  if (type === "coding_drill") return <Film size={16} className={cls} />;
   return <FileText size={16} className={cls} />;
 }
 

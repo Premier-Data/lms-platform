@@ -6,11 +6,13 @@ import {
   Video,
   HelpCircle,
   ClipboardCheck,
+  Film,
 } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
 import { LessonEditorForm } from "@/components/lesson-editor-form";
 import { QuizEditor } from "@/components/quiz-editor";
+import { CodingDrillLessonEditor } from "@/components/coding-drill-lesson-editor";
 
 type LessonEditorPageProps = {
   params: Promise<{
@@ -103,6 +105,19 @@ export default async function LessonEditorPage({
 
       {lesson.lesson_type === "quiz" ? (
         <QuizEditor lessonId={lesson.id} lessonTitle={lesson.title} />
+      ) : lesson.lesson_type === "coding_drill" ? (
+        <CodingDrillLessonEditor
+          lessonId={lesson.id}
+          courseId={id}
+          initialTitle={lesson.title}
+          initialContent={
+            typeof lesson.content === "string"
+              ? lesson.content
+              : lesson.content
+                ? JSON.stringify(lesson.content)
+                : null
+          }
+        />
       ) : (
         <LessonEditorForm
           lesson={{
@@ -150,6 +165,14 @@ function LessonTypeIcon({
     return (
       <div className={className}>
         <ClipboardCheck size={20} />
+      </div>
+    );
+  }
+
+  if (type === "coding_drill") {
+    return (
+      <div className={className}>
+        <Film size={20} />
       </div>
     );
   }

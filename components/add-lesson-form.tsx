@@ -7,12 +7,18 @@ import {
   Video,
   HelpCircle,
   ClipboardCheck,
+  Film,
   Plus,
   X,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 
-type LessonType = "lesson" | "video" | "quiz" | "assessment";
+type LessonType =
+  | "lesson"
+  | "video"
+  | "quiz"
+  | "assessment"
+  | "coding_drill";
 
 type AddLessonFormProps = {
   moduleId: string;
@@ -42,6 +48,12 @@ const lessonTypes = [
     label: "Assessment",
     description: "Formal assessment",
     icon: ClipboardCheck,
+  },
+  {
+    type: "coding_drill" as LessonType,
+    label: "Coding Drill",
+    description: "Video + stats, graded against a master",
+    icon: Film,
   },
 ];
 
