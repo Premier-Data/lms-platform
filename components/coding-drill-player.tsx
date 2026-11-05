@@ -98,6 +98,8 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
             <DrillVideo
               ref={videoRef}
               url={config.videoUrl}
+              start={config.startTime}
+              end={config.endTime}
               className="h-full w-full"
             />
 

@@ -18,6 +18,10 @@ type Props = {
   url: string;
   className?: string;
   onError?: () => void;
+  /** clip start in seconds (optional) */
+  start?: number;
+  /** clip end in seconds (optional) */
+  end?: number;
 };
 
 // Loads the YouTube IFrame API once and resolves when ready.
@@ -49,7 +53,7 @@ function loadYouTubeApi(): Promise<void> {
  * seek regardless of source.
  */
 export const DrillVideo = forwardRef<DrillVideoHandle, Props>(
-  function DrillVideo({ url, className, onError }, ref) {
+  function DrillVideo({ url, className, onError, start, end }, ref) {
     const ytId = parseYouTubeId(url);
     const videoRef = useRef<HTMLVideoElement>(null);
     const containerRef = useRef<HTMLDivElement>(null);
@@ -89,7 +93,9 @@ export const DrillVideo = forwardRef<DrillVideoHandle, Props>(
     useEffect(() => {
       if (!ytId) return;
       let cancelled = false;
-      const start = parseYouTubeStart(url);
+      // Explicit start prop wins; else fall back to the URL's t= param.
+      const startSec = start && start > 0 ? start : parseYouTubeStart(url);
+      const endSec = end && end > 0 ? end : undefined;
 
       loadYouTubeApi().then(() => {
         if (cancelled || !containerRef.current) return;
@@ -100,14 +106,16 @@ export const DrillVideo = forwardRef<DrillVideoHandle, Props>(
         containerRef.current.innerHTML = "";
         const host = document.createElement("div");
         containerRef.current.appendChild(host);
+        const playerVars: Record<string, number> = {
+          start: Math.floor(startSec) || 0,
+          rel: 0,
+          modestbranding: 1,
+          playsinline: 1,
+        };
+        if (endSec) playerVars.end = Math.ceil(endSec);
         playerRef.current = new YT.Player(host, {
           videoId: ytId,
-          playerVars: {
-            start: start || 0,
-            rel: 0,
-            modestbranding: 1,
-            playsinline: 1,
-          },
+          playerVars,
           events: {
             onError: () => onError?.(),
           },
@@ -124,7 +132,28 @@ export const DrillVideo = forwardRef<DrillVideoHandle, Props>(
         playerRef.current = null;
       };
       // eslint-disable-next-line react-hooks/exhaustive-deps
-    }, [ytId, url]);
+    }, [ytId, url, start, end]);
+
+    // Native video: seek to start on load and stop at end.
+    useEffect(() => {
+      if (ytId) return;
+      const v = videoRef.current;
+      if (!v) return;
+      const onLoaded = () => {
+        if (start && start > 0) v.currentTime = start;
+      };
+      const onTime = () => {
+        if (end && end > 0 && v.currentTime >= end) {
+          v.pause();
+        }
+      };
+      v.addEventListener("loadedmetadata", onLoaded);
+      v.addEventListener("timeupdate", onTime);
+      return () => {
+        v.removeEventListener("loadedmetadata", onLoaded);
+        v.removeEventListener("timeupdate", onTime);
+      };
+    }, [ytId, start, end]);
 
     if (ytId) {
       return (

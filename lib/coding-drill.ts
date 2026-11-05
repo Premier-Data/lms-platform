@@ -21,6 +21,10 @@ export type DrillConfig = {
   master: DrillEvent[];
   /** the stat buttons shown to the learner */
   stats: string[];
+  /** optional clip start (seconds). 0 or undefined = from the beginning */
+  startTime?: number;
+  /** optional clip end (seconds). 0 or undefined = to the end */
+  endTime?: number;
 };
 
 // Default stat set (more can be added later by admins per drill).
@@ -90,7 +94,29 @@ export function parseDrillConfig(raw: unknown): DrillConfig {
         .filter(Boolean) as DrillEvent[])
     : [];
 
-  return { videoUrl, tolerance, master, stats };
+  const startTime =
+    typeof obj.startTime === "number" && obj.startTime > 0
+      ? obj.startTime
+      : undefined;
+  const endTime =
+    typeof obj.endTime === "number" && obj.endTime > 0 ? obj.endTime : undefined;
+
+  return { videoUrl, tolerance, master, stats, startTime, endTime };
+}
+
+/** Parse a "mm:ss" or "h:mm:ss" or plain-seconds string to seconds (or null). */
+export function parseClipTime(input: string): number | null {
+  const t = input.trim();
+  if (!t) return null;
+  if (t.includes(":")) {
+    const parts = t.split(":").map((p) => parseInt(p, 10));
+    if (parts.some((n) => Number.isNaN(n))) return null;
+    let seconds = 0;
+    for (const p of parts) seconds = seconds * 60 + p;
+    return seconds;
+  }
+  const n = parseFloat(t);
+  return Number.isNaN(n) ? null : n;
 }
 
 export type GradeResult = {

@@ -8,6 +8,7 @@ import {
   parseDrillConfig,
   statColor,
   formatDrillTime,
+  parseClipTime,
   DEFAULT_DRILL_STATS,
   type DrillConfig,
   type DrillEvent,
@@ -38,6 +39,34 @@ export function CodingDrillEditor({ value, onChange }: Props) {
 
   function setTolerance(t: number) {
     commit({ ...config, tolerance: t });
+  }
+
+  // Clip start/stop (text inputs accept mm:ss or seconds)
+  const [startText, setStartText] = useState(
+    config.startTime ? formatDrillTime(config.startTime) : ""
+  );
+  const [endText, setEndText] = useState(
+    config.endTime ? formatDrillTime(config.endTime) : ""
+  );
+
+  function commitStart() {
+    const v = parseClipTime(startText);
+    commit({ ...config, startTime: v && v > 0 ? v : undefined });
+  }
+  function commitEnd() {
+    const v = parseClipTime(endText);
+    commit({ ...config, endTime: v && v > 0 ? v : undefined });
+  }
+
+  function setToCurrent(which: "start" | "end") {
+    const t = Math.round((videoRef.current?.getCurrentTime() ?? 0) * 10) / 10;
+    if (which === "start") {
+      setStartText(formatDrillTime(t));
+      commit({ ...config, startTime: t > 0 ? t : undefined });
+    } else {
+      setEndText(formatDrillTime(t));
+      commit({ ...config, endTime: t > 0 ? t : undefined });
+    }
   }
 
   function addStat() {
@@ -102,6 +131,8 @@ export function CodingDrillEditor({ value, onChange }: Props) {
             <DrillVideo
               ref={videoRef}
               url={config.videoUrl}
+              start={config.startTime}
+              end={config.endTime}
               className="h-full w-full"
             />
             <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 px-3">
@@ -146,6 +177,57 @@ export function CodingDrillEditor({ value, onChange }: Props) {
             <span className="text-xs text-slate-400">
               How close a learner&apos;s click must be to count as correct.
             </span>
+          </div>
+
+          {/* Clip start / stop */}
+          <div>
+            <label className="mb-1.5 block text-xs font-medium text-slate-500">
+              Clip start &amp; stop{" "}
+              <span className="font-normal text-slate-400">
+                (optional — mm:ss or seconds)
+              </span>
+            </label>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="flex items-center gap-1">
+                <input
+                  value={startText}
+                  onChange={(e) => setStartText(e.target.value)}
+                  onBlur={commitStart}
+                  placeholder="start"
+                  className="w-24 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-pd-red"
+                />
+                <button
+                  type="button"
+                  onClick={() => setToCurrent("start")}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  title="Set start to current video time"
+                >
+                  Use current
+                </button>
+              </div>
+              <span className="text-slate-400">to</span>
+              <div className="flex items-center gap-1">
+                <input
+                  value={endText}
+                  onChange={(e) => setEndText(e.target.value)}
+                  onBlur={commitEnd}
+                  placeholder="stop"
+                  className="w-24 rounded-lg border border-slate-300 bg-white px-2.5 py-1.5 text-sm outline-none focus:border-pd-red"
+                />
+                <button
+                  type="button"
+                  onClick={() => setToCurrent("end")}
+                  className="rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-xs font-medium text-slate-600 hover:bg-slate-50"
+                  title="Set stop to current video time"
+                >
+                  Use current
+                </button>
+              </div>
+            </div>
+            <p className="mt-1 text-[11px] text-slate-400">
+              The drill will play only this segment. Leave blank to use the
+              whole video.
+            </p>
           </div>
 
           {/* Manage stats (the buttons shown over the video). Log to the
