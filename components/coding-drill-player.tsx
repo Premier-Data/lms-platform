@@ -91,37 +91,43 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
       <div className="grid gap-0 lg:grid-cols-[1fr_300px]">
-        {/* LEFT: video + stat overlay */}
+        {/* LEFT: video with stat overlay */}
         <div className="min-w-0">
-          <div className="relative bg-slate-900">
+          {/* 16:9 video box */}
+          <div className="relative aspect-video w-full bg-black">
             <DrillVideo
               ref={videoRef}
               url={config.videoUrl}
-              className="aspect-video max-h-[420px] w-full"
+              className="h-full w-full"
             />
+
+            {/* Stat buttons overlaid along the bottom of the video, lifted
+                above the native player's control bar. */}
+            <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 px-3">
+              <div className="pointer-events-auto flex flex-wrap justify-center gap-2 rounded-xl bg-black/45 p-2 backdrop-blur-sm">
+                {config.stats.map((stat) => (
+                  <button
+                    key={stat}
+                    type="button"
+                    disabled={!!result}
+                    onClick={() => logEvent(stat)}
+                    className="rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-md ring-1 ring-white/20 transition hover:scale-105 hover:opacity-95 disabled:cursor-not-allowed disabled:opacity-40"
+                    style={{ backgroundColor: statColor(stat) }}
+                  >
+                    {stat}
+                  </button>
+                ))}
+              </div>
+            </div>
           </div>
 
-          {/* Stat buttons */}
-          <div className="border-t border-slate-200 p-3">
-            <p className="mb-2 text-xs font-medium text-slate-500">
+          {/* Instruction */}
+          <div className="border-t border-slate-200 px-3 py-2">
+            <p className="text-xs font-medium text-slate-500">
               {result
                 ? "Submitted — review your result, then retry to try again."
-                : "Click a stat the moment it happens in the video."}
+                : "Click a stat the moment it happens in the video. Buttons are overlaid on the video."}
             </p>
-            <div className="flex flex-wrap gap-2">
-              {config.stats.map((stat) => (
-                <button
-                  key={stat}
-                  type="button"
-                  disabled={!!result}
-                  onClick={() => logEvent(stat)}
-                  className="rounded-lg px-3.5 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ backgroundColor: statColor(stat) }}
-                >
-                  {stat}
-                </button>
-              ))}
-            </div>
           </div>
         </div>
 

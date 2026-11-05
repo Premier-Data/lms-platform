@@ -128,9 +128,12 @@ export const DrillVideo = forwardRef<DrillVideoHandle, Props>(
 
     if (ytId) {
       return (
-        <div className={className ?? "aspect-video w-full"}>
-          <div ref={containerRef} className="h-full w-full [&_iframe]:h-full [&_iframe]:w-full" />
-        </div>
+        <div
+          ref={containerRef}
+          className={`h-full w-full [&_iframe]:absolute [&_iframe]:inset-0 [&_iframe]:h-full [&_iframe]:w-full ${
+            className ?? ""
+          }`}
+        />
       );
     }
 
@@ -140,7 +143,7 @@ export const DrillVideo = forwardRef<DrillVideoHandle, Props>(
         ref={videoRef}
         src={url}
         controls
-        className={className ?? "max-h-[420px] w-full"}
+        className={`h-full w-full object-contain ${className ?? ""}`}
         onError={() => onError?.()}
       />
     );

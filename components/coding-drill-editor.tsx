@@ -96,13 +96,30 @@ export function CodingDrillEditor({ value, onChange }: Props) {
 
       {config.videoUrl && (
         <>
-          {/* Video preview used to build the master timeline */}
-          <div className="overflow-hidden rounded-xl bg-slate-900">
+          {/* Video preview with stat overlay, used to build the master
+              timeline (same interaction learners get). */}
+          <div className="relative aspect-video w-full overflow-hidden rounded-xl bg-black">
             <DrillVideo
               ref={videoRef}
               url={config.videoUrl}
-              className="aspect-video max-h-80 w-full"
+              className="h-full w-full"
             />
+            <div className="pointer-events-none absolute inset-x-0 bottom-10 z-10 px-3">
+              <div className="pointer-events-auto flex flex-wrap justify-center gap-2 rounded-xl bg-black/45 p-2 backdrop-blur-sm">
+                {config.stats.map((stat) => (
+                  <div key={stat} className="group relative">
+                    <button
+                      type="button"
+                      onClick={() => logMaster(stat)}
+                      className="rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-md ring-1 ring-white/20 transition hover:scale-105 hover:opacity-95"
+                      style={{ backgroundColor: statColor(stat) }}
+                    >
+                      {stat}
+                    </button>
+                  </div>
+                ))}
+              </div>
+            </div>
           </div>
 
           {/* Tolerance */}
@@ -131,28 +148,26 @@ export function CodingDrillEditor({ value, onChange }: Props) {
             </span>
           </div>
 
-          {/* Stat buttons (used to build master + shown to learners) */}
+          {/* Manage stats (the buttons shown over the video). Log to the
+              master by clicking the overlaid buttons on the video above. */}
           <div>
             <label className="mb-1.5 block text-xs font-medium text-slate-500">
-              Stats — play the video and click a stat to add it to the master
-              timeline
+              Stats — click the buttons over the video to add them to the master
+              timeline. Manage the stat set here:
             </label>
             <div className="flex flex-wrap gap-2">
               {config.stats.map((stat) => (
-                <div key={stat} className="group relative">
-                  <button
-                    type="button"
-                    onClick={() => logMaster(stat)}
-                    className="rounded-lg px-3 py-2 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-                    style={{ backgroundColor: statColor(stat) }}
-                  >
-                    {stat}
-                  </button>
+                <div
+                  key={stat}
+                  className="group relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white"
+                  style={{ backgroundColor: statColor(stat) }}
+                >
+                  {stat}
                   <button
                     type="button"
                     onClick={() => removeStat(stat)}
                     title={`Remove ${stat}`}
-                    className="absolute -right-1.5 -top-1.5 hidden h-4 w-4 items-center justify-center rounded-full bg-slate-700 text-white group-hover:flex"
+                    className="flex h-4 w-4 items-center justify-center rounded-full bg-white/25 text-white hover:bg-white/40"
                   >
                     <X size={10} />
                   </button>
