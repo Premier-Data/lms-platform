@@ -3,6 +3,7 @@
 import { useRef, useState } from "react";
 import { Plus, X, Trash2, Film } from "lucide-react";
 import { VideoUpload } from "@/components/video-upload";
+import { DrillVideo, type DrillVideoHandle } from "@/components/drill-video";
 import {
   parseDrillConfig,
   statColor,
@@ -23,7 +24,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
   const [config, setConfig] = useState<DrillConfig>(() =>
     parseDrillConfig(value)
   );
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<DrillVideoHandle>(null);
   const [newStat, setNewStat] = useState("");
 
   function commit(next: DrillConfig) {
@@ -54,7 +55,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
   }
 
   function logMaster(stat: string) {
-    const t = videoRef.current?.currentTime ?? 0;
+    const t = videoRef.current?.getCurrentTime() ?? 0;
     const event: DrillEvent = { stat, t: Math.round(t * 10) / 10 };
     const master = [...config.master, event].sort((a, b) => a.t - b.t);
     commit({ ...config, master });
@@ -68,10 +69,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
   }
 
   function seekTo(t: number) {
-    if (videoRef.current) {
-      videoRef.current.currentTime = t;
-      videoRef.current.play().catch(() => {});
-    }
+    videoRef.current?.seekTo(t);
   }
 
   return (
@@ -84,20 +82,26 @@ export function CodingDrillEditor({ value, onChange }: Props) {
       {/* Video */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-slate-500">
-          Drill video
+          Drill video{" "}
+          <span className="font-normal text-slate-400">
+            — paste a YouTube link or upload a clip
+          </span>
         </label>
-        <VideoUpload value={config.videoUrl} onChange={setVideo} />
+        <VideoUpload
+          value={config.videoUrl}
+          onChange={setVideo}
+          hidePreview
+        />
       </div>
 
       {config.videoUrl && (
         <>
           {/* Video preview used to build the master timeline */}
           <div className="overflow-hidden rounded-xl bg-slate-900">
-            <video
+            <DrillVideo
               ref={videoRef}
-              src={config.videoUrl}
-              controls
-              className="max-h-80 w-full"
+              url={config.videoUrl}
+              className="aspect-video max-h-80 w-full"
             />
           </div>
 

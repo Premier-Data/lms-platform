@@ -167,3 +167,54 @@ export function formatDrillTime(seconds: number): string {
   const s = Math.floor(seconds % 60);
   return `${m}:${s.toString().padStart(2, "0")}`;
 }
+
+/**
+ * Extract a YouTube video id from common URL shapes:
+ *   https://youtu.be/ID?...                 (short)
+ *   https://www.youtube.com/watch?v=ID&...   (watch)
+ *   https://www.youtube.com/embed/ID         (embed)
+ *   https://www.youtube.com/shorts/ID        (shorts)
+ * Returns null if the url isn't a recognised YouTube link.
+ */
+export function parseYouTubeId(url: string): string | null {
+  if (!url) return null;
+  try {
+    const u = new URL(url.trim());
+    const host = u.hostname.replace(/^www\./, "");
+    if (host === "youtu.be") {
+      const id = u.pathname.slice(1).split("/")[0];
+      return id || null;
+    }
+    if (host === "youtube.com" || host === "m.youtube.com") {
+      if (u.pathname === "/watch") return u.searchParams.get("v");
+      const parts = u.pathname.split("/").filter(Boolean);
+      if (parts[0] === "embed" || parts[0] === "shorts")
+        return parts[1] ?? null;
+    }
+    return null;
+  } catch {
+    return null;
+  }
+}
+
+/** Optional start time (seconds) from a YouTube url's `t`/`start` param. */
+export function parseYouTubeStart(url: string): number {
+  try {
+    const u = new URL(url.trim());
+    const raw = u.searchParams.get("t") ?? u.searchParams.get("start");
+    if (!raw) return 0;
+    // Supports "90", "90s", "1m30s", "1h2m3s"
+    const m = raw.match(/^(?:(\d+)h)?(?:(\d+)m)?(?:(\d+)s?)?$/);
+    if (!m) return 0;
+    const h = parseInt(m[1] ?? "0", 10);
+    const min = parseInt(m[2] ?? "0", 10);
+    const s = parseInt(m[3] ?? "0", 10);
+    return h * 3600 + min * 60 + s;
+  } catch {
+    return 0;
+  }
+}
+
+export function isYouTubeUrl(url: string): boolean {
+  return parseYouTubeId(url) !== null;
+}

@@ -12,11 +12,15 @@ import {
 type VideoUploadProps = {
   value: string;
   onChange: (url: string) => void;
+  /** Hide the built-in native-video preview (e.g. when the caller renders its
+   *  own player that supports YouTube). */
+  hidePreview?: boolean;
 };
 
 export function VideoUpload({
   value,
   onChange,
+  hidePreview = false,
 }: VideoUploadProps) {
   const fileInputRef =
     useRef<HTMLInputElement>(null);
@@ -137,7 +141,10 @@ export function VideoUpload({
       <div>
         <label className="mb-2 flex items-center gap-2 text-sm font-medium text-slate-700">
           <LinkIcon size={16} />
-          Video URL
+          Video URL{" "}
+          <span className="font-normal text-slate-400">
+            (YouTube link or direct .mp4)
+          </span>
         </label>
 
         <input
@@ -149,7 +156,7 @@ export function VideoUpload({
 
             setError("");
           }}
-          placeholder="Paste video URL..."
+          placeholder="Paste a YouTube link or direct video URL..."
           className="w-full rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm outline-none focus:border-slate-900"
         />
       </div>
@@ -210,7 +217,7 @@ export function VideoUpload({
       )}
 
       {/* Preview */}
-      {value && (
+      {value && !hidePreview && (
         <div className="overflow-hidden rounded-xl border border-slate-200 bg-white">
 
           <div className="flex items-center justify-between border-b border-slate-200 px-4 py-3">

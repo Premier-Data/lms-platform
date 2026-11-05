@@ -2,6 +2,7 @@
 
 import { useMemo, useRef, useState } from "react";
 import { Loader2, Trash2, RotateCcw, CheckCircle2, X } from "lucide-react";
+import { DrillVideo, type DrillVideoHandle } from "@/components/drill-video";
 import {
   parseDrillConfig,
   statColor,
@@ -20,7 +21,7 @@ type Props = {
 
 export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   const config = useMemo(() => parseDrillConfig(content), [content]);
-  const videoRef = useRef<HTMLVideoElement>(null);
+  const videoRef = useRef<DrillVideoHandle>(null);
 
   const [events, setEvents] = useState<DrillEvent[]>([]);
   const [result, setResult] = useState<GradeResult | null>(null);
@@ -37,7 +38,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
 
   function logEvent(stat: string) {
     if (result) return; // locked after submit until retry
-    const t = videoRef.current?.currentTime ?? 0;
+    const t = videoRef.current?.getCurrentTime() ?? 0;
     const ev: DrillEvent = { stat, t: Math.round(t * 10) / 10 };
     setEvents((prev) => [...prev, ev].sort((a, b) => a.t - b.t));
   }
@@ -48,10 +49,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   }
 
   function seekTo(t: number) {
-    if (videoRef.current) {
-      videoRef.current.currentTime = t;
-      videoRef.current.play().catch(() => {});
-    }
+    videoRef.current?.seekTo(t);
   }
 
   async function submit() {
@@ -85,9 +83,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   function retry() {
     setEvents([]);
     setResult(null);
-    if (videoRef.current) {
-      videoRef.current.currentTime = 0;
-    }
+    videoRef.current?.seekTo(0);
   }
 
   const acc = result ? Math.round(result.accuracy * 100) : 0;
@@ -98,11 +94,10 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
         {/* LEFT: video + stat overlay */}
         <div className="min-w-0">
           <div className="relative bg-slate-900">
-            <video
+            <DrillVideo
               ref={videoRef}
-              src={config.videoUrl}
-              controls
-              className="max-h-[420px] w-full"
+              url={config.videoUrl}
+              className="aspect-video max-h-[420px] w-full"
             />
           </div>
 
