@@ -255,7 +255,13 @@ export function CourseViewer({
   const isLastPage = lessonPages.length === 0 || pageIndex === lessonPages.length - 1;
 
   return (
-    <div className="mx-auto max-w-7xl">
+    <div
+      className={`mx-auto ${
+        activeLesson?.lesson_type === "coding_drill"
+          ? "max-w-none"
+          : "max-w-7xl"
+      }`}
+    >
       <div className="mb-6 flex items-center justify-between">
         <Link
           href="/courses"
@@ -302,9 +308,19 @@ export function CourseViewer({
         </p>
       </div>
 
-      <div className="grid gap-6 lg:grid-cols-[280px_1fr]">
-        {/* Lesson list sidebar */}
-        <aside className="rounded-2xl border border-slate-200 bg-white p-3">
+      <div
+        className={`grid gap-6 ${
+          activeLesson?.lesson_type === "coding_drill"
+            ? "lg:grid-cols-1"
+            : "lg:grid-cols-[280px_1fr]"
+        }`}
+      >
+        {/* Lesson list sidebar — hidden for coding drills to maximise space */}
+        <aside
+          className={`rounded-2xl border border-slate-200 bg-white p-3 ${
+            activeLesson?.lesson_type === "coding_drill" ? "hidden" : ""
+          }`}
+        >
           {modules.map((m, mi) => {
             const modLessons = lessons
               .filter((l) => l.module_id === m.id)

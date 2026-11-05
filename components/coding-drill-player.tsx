@@ -94,8 +94,8 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
         {/* LEFT: video + vertical stat column */}
         <div className="min-w-0">
           <div className="flex">
-            {/* 16:9 video box */}
-            <div className="relative aspect-video min-w-0 flex-1 bg-black">
+            {/* 16:9 video box, capped so it stays usable on large screens */}
+            <div className="relative aspect-video max-h-[72vh] min-w-0 flex-1 bg-black">
               <DrillVideo
                 ref={videoRef}
                 url={config.videoUrl}
@@ -106,14 +106,14 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
             </div>
 
             {/* Vertical stat column on the right of the video */}
-            <div className="flex w-32 shrink-0 flex-col gap-1.5 overflow-y-auto border-l border-slate-200 bg-slate-50 p-2">
+            <div className="flex w-36 shrink-0 flex-col gap-2 overflow-y-auto border-l border-slate-200 bg-slate-50 p-2.5">
               {config.stats.map((stat) => (
                 <button
                   key={stat}
                   type="button"
                   disabled={!!result}
                   onClick={() => logEvent(stat)}
-                  className="rounded-lg px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
+                  className="rounded-lg px-2 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
                   style={{ backgroundColor: statColor(stat) }}
                 >
                   {stat}
