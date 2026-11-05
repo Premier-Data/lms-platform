@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -52,6 +52,13 @@ export function ModuleLessons({
   );
   const [dragId, setDragId] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
+
+  // Re-sync when the parent provides a new lessons list (e.g. after a lesson
+  // is added/deleted and CourseContent re-queries). Without this the child
+  // keeps its initial copy and new lessons never appear.
+  useEffect(() => {
+    setItems([...lessons].sort((a, b) => a.position - b.position));
+  }, [lessons]);
 
   async function persistOrder(ordered: Lesson[]) {
     setSaving(true);
