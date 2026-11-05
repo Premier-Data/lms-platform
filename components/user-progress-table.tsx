@@ -12,6 +12,8 @@ export type UserProgressRow = {
   notStarted: number;
   avgQuizScore: number | null;
   totalAttempts: number;
+  drillAttempts: number;
+  bestDrillAccuracy: number | null;
 };
 
 type SortKey =
@@ -21,7 +23,9 @@ type SortKey =
   | "inProgress"
   | "notStarted"
   | "avgQuizScore"
-  | "totalAttempts";
+  | "totalAttempts"
+  | "drillAttempts"
+  | "bestDrillAccuracy";
 
 export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
   const [search, setSearch] = useState("");
@@ -67,6 +71,8 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
           <option value="notStarted">Sort: Not Started</option>
           <option value="avgQuizScore">Sort: Avg Quiz %</option>
           <option value="totalAttempts">Sort: Quiz Attempts</option>
+          <option value="drillAttempts">Sort: Drill Attempts</option>
+          <option value="bestDrillAccuracy">Sort: Best Drill %</option>
         </select>
         <button
           onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
@@ -101,6 +107,12 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
                 <th className="px-5 py-3 font-semibold text-slate-700">
                   Quiz Attempts
                 </th>
+                <th className="px-5 py-3 font-semibold text-slate-700">
+                  Drill Attempts
+                </th>
+                <th className="px-5 py-3 font-semibold text-slate-700">
+                  Best Drill %
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -122,12 +134,20 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
                   <td className="px-5 py-3 text-slate-700">
                     {u.totalAttempts}
                   </td>
+                  <td className="px-5 py-3 text-slate-700">
+                    {u.drillAttempts}
+                  </td>
+                  <td className="px-5 py-3 text-slate-700">
+                    {u.bestDrillAccuracy !== null
+                      ? `${u.bestDrillAccuracy}%`
+                      : "—"}
+                  </td>
                 </tr>
               ))}
               {view.length === 0 && (
                 <tr>
                   <td
-                    colSpan={7}
+                    colSpan={9}
                     className="px-5 py-8 text-center text-slate-400"
                   >
                     No users found.

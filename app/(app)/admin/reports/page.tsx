@@ -92,6 +92,21 @@ export default async function ReportsPage() {
         )
       : 0;
 
+  // Per-user coding-drill stats: attempt count + best accuracy.
+  const drillAttemptsRaw = allDrillAttempts ?? [];
+  const drillStatsByUser = new Map<
+    string,
+    { attempts: number; best: number }
+  >();
+  for (const a of drillAttemptsRaw) {
+    const uid = a.user_id as string;
+    const acc = (a.accuracy as number) ?? 0;
+    const entry = drillStatsByUser.get(uid) ?? { attempts: 0, best: 0 };
+    entry.attempts += 1;
+    entry.best = Math.max(entry.best, acc);
+    drillStatsByUser.set(uid, entry);
+  }
+
   // --- User Progress ---
   const userProgress = users.map((u) => {
     const userAssignments = assignments.filter((a) => a.user_id === u.id);
@@ -110,6 +125,8 @@ export default async function ReportsPage() {
           )
         : null;
 
+    const drill = drillStatsByUser.get(u.id);
+
     return {
       id: u.id,
       name: u.user_metadata?.full_name ?? u.email ?? "Unknown",
@@ -120,6 +137,8 @@ export default async function ReportsPage() {
       notStarted: userAssignments.length - completed - inProgress,
       avgQuizScore: avgScore,
       totalAttempts: userAttempts.length,
+      drillAttempts: drill?.attempts ?? 0,
+      bestDrillAccuracy: drill ? drill.best : null,
     };
   });
 
