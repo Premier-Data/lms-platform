@@ -25,6 +25,8 @@ type Lesson = {
 type ModuleLessonsProps = {
   courseId: string;
   lessons: Lesson[];
+  /** called after reorder/rename/delete so the parent can refresh */
+  onChanged?: () => void;
 };
 
 function LessonIcon({ type }: { type: string }) {
@@ -37,7 +39,11 @@ function LessonIcon({ type }: { type: string }) {
   return <FileText size={19} className={className} />;
 }
 
-export function ModuleLessons({ courseId, lessons }: ModuleLessonsProps) {
+export function ModuleLessons({
+  courseId,
+  lessons,
+  onChanged,
+}: ModuleLessonsProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -62,6 +68,7 @@ export function ModuleLessons({ courseId, lessons }: ModuleLessonsProps) {
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ course_id: courseId }),
     });
+    onChanged?.();
     router.refresh();
   }
 
@@ -135,6 +142,7 @@ export function ModuleLessons({ courseId, lessons }: ModuleLessonsProps) {
               lessonId={lesson.id}
               courseId={courseId}
               title={lesson.title}
+              onChanged={onChanged}
             />
           </Link>
         </div>

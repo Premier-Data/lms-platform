@@ -10,9 +10,16 @@ type LessonMenuProps = {
   lessonId: string;
   courseId: string;
   title: string;
+  /** called after rename/delete so the parent can refresh */
+  onChanged?: () => void;
 };
 
-export function LessonMenu({ lessonId, courseId, title }: LessonMenuProps) {
+export function LessonMenu({
+  lessonId,
+  courseId,
+  title,
+  onChanged,
+}: LessonMenuProps) {
   const router = useRouter();
   const supabase = createClient();
 
@@ -88,6 +95,7 @@ export function LessonMenu({ lessonId, courseId, title }: LessonMenuProps) {
     setWorking(false);
     setRenaming(false);
     unpublishOnEdit();
+    onChanged?.();
     router.refresh();
   }
 
@@ -97,6 +105,7 @@ export function LessonMenu({ lessonId, courseId, title }: LessonMenuProps) {
     setWorking(false);
     setConfirmDelete(false);
     unpublishOnEdit();
+    onChanged?.();
     router.refresh();
   }
 

@@ -1,14 +1,11 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { ArrowLeft, BookOpen } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 
 import { createClient } from "@/lib/supabase/server";
-import { AddModuleForm } from "@/components/add-module-form";
-import { AddLessonForm } from "@/components/add-lesson-form";
 import { CoursePublishButton } from "@/components/course-publish-button";
 import { EditCourseDetails } from "@/components/edit-course-details";
-import { ModuleMenu } from "@/components/module-menu";
-import { ModuleLessons } from "@/components/module-lessons";
+import { CourseContent } from "@/components/course-content";
 
 // Always render fresh so newly added modules/lessons appear immediately after
 // router.refresh() (no stale route/data cache).
@@ -151,99 +148,13 @@ export default async function CourseEditorPage({
         </div>
       </div>
 
-      {/* Content Header */}
-      <div className="mt-8 mb-5 flex items-center justify-between">
-        <div>
-          <h2 className="text-xl font-semibold text-slate-900">
-            Course Content
-          </h2>
-
-          <p className="mt-1 text-sm text-slate-500">
-            Organise your training into modules and lessons.
-          </p>
-        </div>
-
-        <AddModuleForm courseId={course.id} />
-      </div>
-
-      {/* Empty State */}
-      {!modules || modules.length === 0 ? (
-        <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-16 text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-100">
-            <BookOpen size={30} className="text-slate-500" />
-          </div>
-
-          <h3 className="mt-5 text-lg font-semibold text-slate-900">
-            Start building your course
-          </h3>
-
-          <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-            Add your first module, then organise it with lessons,
-            videos, images, quizzes and assessments.
-          </p>
-
-          <div className="mt-6">
-            <AddModuleForm courseId={course.id} />
-          </div>
-        </div>
-      ) : (
-        /* Modules */
-        <div className="space-y-5">
-          {modules.map((module, moduleIndex) => {
-            const moduleLessons =
-              lessons?.filter(
-                (lesson: Lesson) =>
-                  lesson.module_id === module.id
-              ) ?? [];
-
-            return (
-              <div
-                key={module.id}
-                className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
-              >
-                {/* Module Header */}
-                <div className="flex items-center justify-between p-6">
-                  <div className="flex items-center gap-4">
-                    <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
-                      {moduleIndex + 1}
-                    </div>
-
-                    <div>
-                      <h3 className="text-lg font-semibold text-slate-900">
-                        {module.title}
-                      </h3>
-
-                      {module.description && (
-                        <p className="mt-1 text-sm text-slate-500">
-                          {module.description}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    <AddLessonForm moduleId={module.id} />
-                    <ModuleMenu
-                      moduleId={module.id}
-                      courseId={course.id}
-                      title={module.title}
-                      description={module.description}
-                    />
-                  </div>
-                </div>
-
-                {/* Lessons */}
-                <div className="border-t border-slate-200 bg-slate-50">
-                  <ModuleLessons
-                    courseId={course.id}
-                    lessons={moduleLessons}
-                  />
-                </div>
-              </div>
-            );
-          })}
-        </div>
-      )}
+      {/* Course content (modules + lessons) — client component so newly
+          added items appear instantly without a page reload. */}
+      <CourseContent
+        courseId={course.id}
+        initialModules={modules ?? []}
+        initialLessons={(lessons ?? []) as Lesson[]}
+      />
     </div>
   );
 }

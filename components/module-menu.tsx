@@ -17,6 +17,8 @@ type ModuleMenuProps = {
   courseId: string;
   title: string;
   description: string | null;
+  /** called after edit/delete so the parent can refresh its list */
+  onChanged?: () => void;
 };
 
 export function ModuleMenu({
@@ -24,6 +26,7 @@ export function ModuleMenu({
   courseId,
   title,
   description,
+  onChanged,
 }: ModuleMenuProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -97,6 +100,7 @@ export function ModuleMenu({
     setWorking(false);
     setEditing(false);
     unpublishOnEdit();
+    onChanged?.();
     router.refresh();
   }
 
@@ -108,6 +112,7 @@ export function ModuleMenu({
     setWorking(false);
     setConfirmDelete(false);
     unpublishOnEdit();
+    onChanged?.();
     router.refresh();
   }
 

@@ -7,10 +7,13 @@ import { createClient } from "@/lib/supabase/client";
 
 type AddModuleFormProps = {
   courseId: string;
+  /** called after a module is created so the parent can refresh its list */
+  onCreated?: () => void;
 };
 
 export function AddModuleForm({
   courseId,
+  onCreated,
 }: AddModuleFormProps) {
   const router = useRouter();
 
@@ -62,6 +65,7 @@ export function AddModuleForm({
       body: JSON.stringify({ course_id: courseId }),
     });
 
+    onCreated?.();
     router.refresh();
   }
 

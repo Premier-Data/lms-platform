@@ -22,6 +22,8 @@ type LessonType =
 
 type AddLessonFormProps = {
   moduleId: string;
+  /** called after a lesson is created so the parent can refresh its list */
+  onCreated?: () => void;
 };
 
 const lessonTypes = [
@@ -59,6 +61,7 @@ const lessonTypes = [
 
 export function AddLessonForm({
   moduleId,
+  onCreated,
 }: AddLessonFormProps) {
   const router = useRouter();
 
@@ -122,6 +125,7 @@ export function AddLessonForm({
       body: JSON.stringify({ module_id: moduleId }),
     });
 
+    onCreated?.();
     router.refresh();
   }
 
