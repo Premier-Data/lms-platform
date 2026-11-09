@@ -1,9 +1,10 @@
 "use client";
 
 import { useRef, useState } from "react";
-import { Plus, X, Trash2, Film } from "lucide-react";
+import { Plus, X, Trash2, Film, BarChart3 } from "lucide-react";
 import { VideoUpload } from "@/components/video-upload";
 import { DrillVideo, type DrillVideoHandle } from "@/components/drill-video";
+import { DrillSummary } from "@/components/drill-summary";
 import {
   parseDrillConfig,
   statColor,
@@ -27,6 +28,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
   );
   const videoRef = useRef<DrillVideoHandle>(null);
   const [newStat, setNewStat] = useState("");
+  const [showSummary, setShowSummary] = useState(false);
 
   function commit(next: DrillConfig) {
     setConfig(next);
@@ -297,16 +299,40 @@ export function CodingDrillEditor({ value, onChange }: Props) {
               <label className="text-xs font-medium text-slate-500">
                 Master timeline ({config.master.length})
               </label>
-              {config.master.length > 0 && (
+              <div className="flex items-center gap-3">
                 <button
                   type="button"
-                  onClick={() => commit({ ...config, master: [] })}
-                  className="text-xs font-medium text-slate-400 hover:text-red-600"
+                  onClick={() => setShowSummary((s) => !s)}
+                  className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                    showSummary
+                      ? "bg-pd-red text-white"
+                      : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+                  }`}
+                  title="Show total coded per stat"
                 >
-                  Clear all
+                  <BarChart3 size={13} />
+                  {showSummary ? "Hide summary" : "Summary"}
                 </button>
-              )}
+                {config.master.length > 0 && (
+                  <button
+                    type="button"
+                    onClick={() => commit({ ...config, master: [] })}
+                    className="text-xs font-medium text-slate-400 hover:text-red-600"
+                  >
+                    Clear all
+                  </button>
+                )}
+              </div>
             </div>
+            {showSummary && (
+              <div className="mb-2">
+                <DrillSummary
+                  stats={config.stats}
+                  events={config.master}
+                  countLabel="Coded"
+                />
+              </div>
+            )}
             {config.master.length === 0 ? (
               <p className="rounded-lg border border-dashed border-slate-300 bg-white px-3 py-4 text-center text-xs text-slate-400">
                 No master events yet. Play the video and click a stat at the

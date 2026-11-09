@@ -1,8 +1,16 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
-import { Loader2, Trash2, RotateCcw, CheckCircle2, X } from "lucide-react";
+import {
+  Loader2,
+  Trash2,
+  RotateCcw,
+  CheckCircle2,
+  X,
+  BarChart3,
+} from "lucide-react";
 import { DrillVideo, type DrillVideoHandle } from "@/components/drill-video";
+import { DrillSummary } from "@/components/drill-summary";
 import {
   parseDrillConfig,
   statColor,
@@ -27,6 +35,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   const [result, setResult] = useState<GradeResult | null>(null);
   const [submitting, setSubmitting] = useState(false);
   const [attemptCount, setAttemptCount] = useState(0);
+  const [showSummary, setShowSummary] = useState(false);
 
   if (!config.videoUrl) {
     return (
@@ -136,14 +145,51 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
         <div className="flex flex-col border-t border-slate-200 lg:border-l lg:border-t-0">
           <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Your timeline
+              {showSummary ? "Summary" : "Your timeline"}
             </span>
-            <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
-              {events.length}
-            </span>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setShowSummary((s) => !s)}
+                className={`inline-flex items-center gap-1 rounded-lg px-2 py-1 text-xs font-semibold transition ${
+                  showSummary
+                    ? "bg-pd-red text-white"
+                    : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
+                }`}
+                title="Show total coded per stat"
+              >
+                <BarChart3 size={13} />
+                {showSummary ? "Timeline" : "Summary"}
+              </button>
+              <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
+                {events.length}
+              </span>
+            </div>
           </div>
 
-          <div className="max-h-[360px] min-h-[160px] flex-1 overflow-y-auto p-2">
+          {showSummary && (
+            <div className="max-h-[360px] min-h-[160px] flex-1 overflow-y-auto p-2">
+              <DrillSummary
+                stats={config.stats}
+                events={events}
+                countLabel="You"
+                // Only reveal the master counts once the attempt is graded.
+                compareEvents={result ? config.master : undefined}
+                compareLabel="Master"
+              />
+              {!result && (
+                <p className="mt-2 px-1 text-[11px] text-slate-400">
+                  Master counts are shown after you submit.
+                </p>
+              )}
+            </div>
+          )}
+
+          <div
+            className={`max-h-[360px] min-h-[160px] flex-1 overflow-y-auto p-2 ${
+              showSummary ? "hidden" : ""
+            }`}
+          >
             {events.length === 0 ? (
               <p className="px-2 py-8 text-center text-xs text-slate-400">
                 No events logged yet.
