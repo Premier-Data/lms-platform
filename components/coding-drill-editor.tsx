@@ -82,7 +82,20 @@ export function CodingDrillEditor({ value, onChange }: Props) {
   }
 
   function removeStat(stat: string) {
-    commit({ ...config, stats: config.stats.filter((s) => s !== stat) });
+    const { [stat]: _removed, ...restColors } = config.statColors ?? {};
+    void _removed;
+    commit({
+      ...config,
+      stats: config.stats.filter((s) => s !== stat),
+      statColors: restColors,
+    });
+  }
+
+  function setStatColor(stat: string, color: string) {
+    commit({
+      ...config,
+      statColors: { ...(config.statColors ?? {}), [stat]: color },
+    });
   }
 
   function logMaster(stat: string) {
@@ -146,7 +159,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
                   type="button"
                   onClick={() => logMaster(stat)}
                   className="rounded-lg px-2 py-2.5 text-sm font-semibold text-white shadow-sm transition hover:opacity-90"
-                  style={{ backgroundColor: statColor(stat) }}
+                  style={{ backgroundColor: statColor(stat, config.statColors) }}
                 >
                   {stat}
                 </button>
@@ -243,8 +256,21 @@ export function CodingDrillEditor({ value, onChange }: Props) {
                 <div
                   key={stat}
                   className="group relative inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-semibold text-white"
-                  style={{ backgroundColor: statColor(stat) }}
+                  style={{ backgroundColor: statColor(stat, config.statColors) }}
                 >
+                  <label
+                    className="relative h-4 w-4 shrink-0 cursor-pointer overflow-hidden rounded-full ring-2 ring-white/70"
+                    title={`Change colour for ${stat}`}
+                    style={{ backgroundColor: statColor(stat, config.statColors) }}
+                  >
+                    <input
+                      type="color"
+                      value={statColor(stat, config.statColors)}
+                      onChange={(e) => setStatColor(stat, e.target.value)}
+                      aria-label={`Colour for ${stat}`}
+                      className="absolute inset-0 h-full w-full cursor-pointer opacity-0"
+                    />
+                  </label>
                   {stat}
                   <button
                     type="button"
@@ -327,6 +353,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
             {showSummary && (
               <div className="mb-2">
                 <DrillSummary
+                  colors={config.statColors}
                   stats={config.stats}
                   events={config.master}
                   countLabel="Coded"
@@ -349,7 +376,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
                   >
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
-                      style={{ backgroundColor: statColor(e.stat) }}
+                      style={{ backgroundColor: statColor(e.stat, config.statColors) }}
                     />
                     <span className="font-mono text-xs text-slate-500">
                       {formatDrillTime(e.t)}

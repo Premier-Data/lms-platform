@@ -123,7 +123,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                   disabled={!!result}
                   onClick={() => logEvent(stat)}
                   className="rounded-lg px-2 py-3 text-sm font-semibold text-white shadow-sm transition hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-40"
-                  style={{ backgroundColor: statColor(stat) }}
+                  style={{ backgroundColor: statColor(stat, config.statColors) }}
                 >
                   {stat}
                 </button>
@@ -170,6 +170,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
           {showSummary && (
             <div className="max-h-[360px] min-h-[160px] flex-1 overflow-y-auto p-2">
               <DrillSummary
+                  colors={config.statColors}
                 stats={config.stats}
                 events={events}
                 countLabel="You"
@@ -211,7 +212,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                     >
                       <span
                         className="h-2.5 w-2.5 shrink-0 rounded-full"
-                        style={{ backgroundColor: statColor(e.stat) }}
+                        style={{ backgroundColor: statColor(e.stat, config.statColors) }}
                       />
                       <button
                         type="button"
@@ -328,7 +329,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                       <X size={11} className="text-red-500" />
                       <span
                         className="h-2 w-2 rounded-full"
-                        style={{ backgroundColor: statColor(d.stat) }}
+                        style={{ backgroundColor: statColor(d.stat, config.statColors) }}
                       />
                       {d.stat} @ {formatDrillTime(d.t)}
                     </button>

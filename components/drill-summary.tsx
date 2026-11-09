@@ -12,6 +12,8 @@ type Props = {
   /** optional master events — when provided, shown as a comparison column */
   compareEvents?: DrillEvent[];
   compareLabel?: string;
+  /** optional per-stat colour overrides */
+  colors?: Record<string, string>;
 };
 
 function countBy(events: DrillEvent[]): Map<string, number> {
@@ -27,6 +29,7 @@ export function DrillSummary({
   countLabel = "Coded",
   compareEvents,
   compareLabel = "Master",
+  colors,
 }: Props) {
   const counts = countBy(events);
   const compare = compareEvents ? countBy(compareEvents) : null;
@@ -66,7 +69,7 @@ export function DrillSummary({
                   <span className="inline-flex items-center gap-2 font-medium text-slate-800">
                     <span
                       className="h-2.5 w-2.5 rounded-full"
-                      style={{ backgroundColor: statColor(stat) }}
+                      style={{ backgroundColor: statColor(stat, colors) }}
                     />
                     {stat}
                   </span>

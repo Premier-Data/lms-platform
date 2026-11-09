@@ -21,6 +21,8 @@ export type DrillConfig = {
   master: DrillEvent[];
   /** the stat buttons shown to the learner */
   stats: string[];
+  /** optional per-stat colour overrides (hex), keyed by stat label */
+  statColors?: Record<string, string>;
   /** optional clip start (seconds). 0 or undefined = from the beginning */
   startTime?: number;
   /** optional clip end (seconds). 0 or undefined = to the end */
@@ -46,8 +48,32 @@ export const STAT_COLORS: Record<string, string> = {
   "Throw In": "#9333ea", // purple
 };
 
-export function statColor(stat: string): string {
-  return STAT_COLORS[stat] ?? "#475569";
+// Palette used to give custom stats distinct colours by default.
+export const STAT_PALETTE = [
+  "#0891b2", // cyan
+  "#db2777", // pink
+  "#65a30d", // lime
+  "#ea580c", // orange
+  "#7c3aed", // violet
+  "#0d9488", // teal
+  "#ca8a04", // yellow
+  "#475569", // slate
+];
+
+/**
+ * Colour for a stat: admin override first, then the built-in colour, then a
+ * stable palette colour derived from the label so custom stats differ.
+ */
+export function statColor(
+  stat: string,
+  overrides?: Record<string, string>
+): string {
+  const o = overrides?.[stat];
+  if (o) return o;
+  if (STAT_COLORS[stat]) return STAT_COLORS[stat];
+  let h = 0;
+  for (let i = 0; i < stat.length; i++) h = (h * 31 + stat.charCodeAt(i)) >>> 0;
+  return STAT_PALETTE[h % STAT_PALETTE.length];
 }
 
 export function emptyDrillConfig(): DrillConfig {
@@ -101,7 +127,18 @@ export function parseDrillConfig(raw: unknown): DrillConfig {
   const endTime =
     typeof obj.endTime === "number" && obj.endTime > 0 ? obj.endTime : undefined;
 
-  return { videoUrl, tolerance, master, stats, startTime, endTime };
+  const statColors: Record<string, string> = {};
+  if (obj.statColors && typeof obj.statColors === "object") {
+    for (const [k, v] of Object.entries(
+      obj.statColors as Record<string, unknown>
+    )) {
+      if (typeof v === "string" && /^#[0-9a-fA-F]{6}$/.test(v)) {
+        statColors[k] = v;
+      }
+    }
+  }
+
+  return { videoUrl, tolerance, master, stats, statColors, startTime, endTime };
 }
 
 /** Parse a "mm:ss" or "h:mm:ss" or plain-seconds string to seconds (or null). */
