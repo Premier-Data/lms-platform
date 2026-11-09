@@ -15,9 +15,17 @@ import {
   ClipboardCheck,
   Film,
   Loader2,
+  Lock,
   Save,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { QuestionBlockPlayer } from "@/components/question-block-player";
+import {
+  isQuestionSatisfied,
+  parseQuestionConfig,
+  type QuestionAnswer,
+  type QuestionGate,
+} from "@/lib/question-block";
 import { QuizTaker } from "@/components/quiz-taker";
 import { CodingDrillPlayer } from "@/components/coding-drill-player";
 
@@ -54,7 +62,11 @@ type SavedProgress = {
   lesson_id?: string;
   page_index?: number;
   completed_lessons?: string[];
+  /** learner answers to one-off question blocks, keyed by block id */
+  question_answers?: Record<string, QuestionAnswer>;
 };
+
+type GatedQuestion = { blockId: string; pageId: string; gate: QuestionGate };
 
 type CourseViewerProps = {
   course: Course;
@@ -94,12 +106,46 @@ export function CourseViewer({
 
   const saved = savedProgress as SavedProgress;
 
-  // Restore saved lesson, falling back to the first lesson.
-  const initialLessonId =
+  // Question blocks that gate progression, grouped by lesson (in page order).
+  const gatedByLesson = useMemo(() => {
+    const pageById = new Map(pages.map((p) => [p.id, p]));
+    const map = new Map<string, GatedQuestion[]>();
+    for (const b of blocks) {
+      if (b.block_type !== "question") continue;
+      const page = pageById.get(b.page_id);
+      if (!page) continue;
+      const { gate } = parseQuestionConfig(b.content);
+      if (gate === "none") continue;
+      const list = map.get(page.lesson_id) ?? [];
+      list.push({ blockId: b.id, pageId: page.id, gate });
+      map.set(page.lesson_id, list);
+    }
+    return map;
+  }, [pages, blocks]);
+
+  // Index of the first lesson with an unanswered required question, or -1.
+  function firstBlockedIndex(answers: Record<string, QuestionAnswer>): number {
+    return orderedLessons.findIndex((l) =>
+      (gatedByLesson.get(l.id) ?? []).some(
+        (q) => !isQuestionSatisfied(q.gate, answers[q.blockId])
+      )
+    );
+  }
+
+  // Restore saved lesson, falling back to the first lesson. Never restore
+  // beyond a lesson with an unanswered required question.
+  const blockedAtStart = firstBlockedIndex(saved.question_answers ?? {});
+  let initialLessonId =
     saved.lesson_id &&
     orderedLessons.some((l) => l.id === saved.lesson_id)
       ? saved.lesson_id
       : orderedLessons[0]?.id ?? null;
+  if (
+    blockedAtStart !== -1 &&
+    orderedLessons.findIndex((l) => l.id === initialLessonId) > blockedAtStart
+  ) {
+    initialLessonId = orderedLessons[blockedAtStart].id;
+  }
 
   const [activeLessonId, setActiveLessonId] = useState<string | null>(
     initialLessonId
@@ -126,30 +172,85 @@ export function CourseViewer({
   );
 
   // Restore saved page index only for the initially restored lesson.
-  const [pageIndex, setPageIndex] = useState(
-    saved.lesson_id === initialLessonId && typeof saved.page_index === "number"
-      ? saved.page_index
-      : 0
-  );
+  const [pageIndex, setPageIndex] = useState(() => {
+    const restored =
+      saved.lesson_id === initialLessonId && typeof saved.page_index === "number"
+        ? saved.page_index
+        : 0;
+    // If a required question on an earlier page is unanswered (e.g. it was
+    // added after the learner passed that page), resume at that page instead.
+    const answers = saved.question_answers ?? {};
+    const initialPages = pages
+      .filter((p) => p.lesson_id === initialLessonId)
+      .sort((a, b) => a.position - b.position);
+    const pending = gatedByLesson.get(initialLessonId ?? "") ?? [];
+    const firstPending = initialPages.findIndex((p) =>
+      pending.some(
+        (q) =>
+          q.pageId === p.id &&
+          !isQuestionSatisfied(q.gate, answers[q.blockId])
+      )
+    );
+    return firstPending !== -1 && restored > firstPending
+      ? firstPending
+      : restored;
+  });
 
   const currentLessonIndex = orderedLessons.findIndex(
     (l) => l.id === activeLessonId
   );
 
-  // A lesson counts as "done" once the learner reaches its last page.
+  // --- Progression gating (required one-off questions) ---
+  const [questionAnswers, setQuestionAnswers] = useState<
+    Record<string, QuestionAnswer>
+  >(saved.question_answers ?? {});
+
+  const blockedIndex = firstBlockedIndex(questionAnswers);
+  // Lessons after the first one with an unanswered required question are locked.
+  const isLessonLocked = (index: number) =>
+    blockedIndex !== -1 && index > blockedIndex;
+
+  const pendingInLesson = activeLesson
+    ? (gatedByLesson.get(activeLesson.id) ?? []).filter(
+        (q) => !isQuestionSatisfied(q.gate, questionAnswers[q.blockId])
+      )
+    : [];
+  const pendingCount = pendingInLesson.length;
+
+  const currentPageId = lessonPages[pageIndex]?.id;
+  const pendingOnPage = pendingInLesson.filter(
+    (q) => q.pageId === currentPageId
+  ).length;
+
+  function recordAnswer(blockId: string, answer: QuestionAnswer) {
+    setQuestionAnswers((prev) => ({ ...prev, [blockId]: answer }));
+  }
+
+  // A lesson counts as "done" once the learner reaches its last page and has
+  // answered every required question in it.
   // Mark it whenever the active lesson + page satisfies that.
   useEffect(() => {
     if (!activeLesson) return;
     const total = lessonPages.length;
     const onLastPage = total === 0 || pageIndex >= total - 1;
-    if (onLastPage && !completedLessons.has(activeLesson.id)) {
+    if (
+      onLastPage &&
+      pendingCount === 0 &&
+      !completedLessons.has(activeLesson.id)
+    ) {
       setCompletedLessons((prev) => {
         const next = new Set(prev);
         next.add(activeLesson.id);
         return next;
       });
     }
-  }, [activeLesson, pageIndex, lessonPages.length, completedLessons]);
+  }, [
+    activeLesson,
+    pageIndex,
+    lessonPages.length,
+    completedLessons,
+    pendingCount,
+  ]);
 
   // Build the progress object to persist.
   const buildProgress = useCallback(
@@ -157,8 +258,9 @@ export function CourseViewer({
       lesson_id: activeLessonId ?? undefined,
       page_index: pageIndex,
       completed_lessons: Array.from(completedLessons),
+      question_answers: questionAnswers,
     }),
-    [activeLessonId, pageIndex, completedLessons]
+    [activeLessonId, pageIndex, completedLessons, questionAnswers]
   );
 
   async function persistProgress() {
@@ -211,9 +313,12 @@ export function CourseViewer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLessonId, pageIndex, completedLessons]);
+  }, [activeLessonId, pageIndex, completedLessons, questionAnswers]);
 
   function changeLesson(lessonId: string) {
+    const index = orderedLessons.findIndex((l) => l.id === lessonId);
+    // Can't jump past a lesson with unanswered required questions.
+    if (index === -1 || isLessonLocked(index)) return;
     setActiveLessonId(lessonId);
     setPageIndex(0);
   }
@@ -232,6 +337,7 @@ export function CourseViewer({
 
   const allLessonsComplete =
     orderedLessons.length > 0 &&
+    blockedIndex === -1 &&
     orderedLessons.every((l) => completedLessons.has(l.id));
 
   async function markComplete() {
@@ -335,18 +441,32 @@ export function CourseViewer({
                 <div className="space-y-0.5">
                   {modLessons.map((lesson) => {
                     const active = lesson.id === activeLessonId;
-                    const done = completedLessons.has(lesson.id);
+                    const locked = isLessonLocked(
+                      orderedLessons.findIndex((l) => l.id === lesson.id)
+                    );
+                    const done = !locked && completedLessons.has(lesson.id);
                     return (
                       <button
                         key={lesson.id}
                         onClick={() => changeLesson(lesson.id)}
-                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition ${
+                        disabled={locked}
+                        title={
+                          locked
+                            ? "Answer the required questions in earlier lessons to unlock"
+                            : undefined
+                        }
+                        className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
                           active
                             ? "bg-pd-red/10 font-medium text-pd-red"
-                            : "text-slate-600 hover:bg-slate-50"
+                            : "text-slate-600 hover:bg-slate-50 disabled:hover:bg-transparent"
                         }`}
                       >
-                        {done ? (
+                        {locked ? (
+                          <Lock
+                            size={16}
+                            className="shrink-0 text-slate-400"
+                          />
+                        ) : done ? (
                           <CheckCircle2
                             size={16}
                             className="shrink-0 text-green-600"
@@ -454,7 +574,12 @@ export function CourseViewer({
                         .filter((b) => b.page_id === currentPage.id)
                         .sort((a, b) => a.position - b.position)
                         .map((block) => (
-                          <ContentBlock key={block.id} block={block} />
+                          <ContentBlock
+                            key={block.id}
+                            block={block}
+                            answer={questionAnswers[block.id]}
+                            onAnswer={(a) => recordAnswer(block.id, a)}
+                          />
                         ))}
                     </div>
                   </>
@@ -480,7 +605,7 @@ export function CourseViewer({
                     Page {pageIndex + 1} of {lessonPages.length}
                   </span>
                   <button
-                    disabled={isLastPage}
+                    disabled={isLastPage || pendingOnPage > 0}
                     onClick={() => setPageIndex((i) => i + 1)}
                     className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 disabled:opacity-30"
                   >
@@ -488,6 +613,15 @@ export function CourseViewer({
                     <ChevronRight size={17} />
                   </button>
                 </div>
+              )}
+
+              {pendingOnPage > 0 && (
+                <p className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-8 py-2 text-xs text-slate-500">
+                  <Lock size={12} />
+                  {pendingOnPage === 1
+                    ? "Answer the question above to continue."
+                    : "Answer the questions above to continue."}
+                </p>
               )}
 
               {/* Lesson navigation / complete */}
@@ -533,7 +667,7 @@ export function CourseViewer({
                 ) : (
                   <button
                     onClick={() => goToLesson(currentLessonIndex + 1)}
-                    disabled={!isLastPage}
+                    disabled={!isLastPage || pendingCount > 0}
                     className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-40"
                   >
                     Next lesson
@@ -566,7 +700,25 @@ function LessonIcon({ type, active }: { type: string; active: boolean }) {
   return <FileText size={16} className={cls} />;
 }
 
-function ContentBlock({ block }: { block: Block }) {
+function ContentBlock({
+  block,
+  answer,
+  onAnswer,
+}: {
+  block: Block;
+  answer?: QuestionAnswer;
+  onAnswer?: (answer: QuestionAnswer) => void;
+}) {
+  if (block.block_type === "question") {
+    return (
+      <QuestionBlockPlayer
+        content={block.content}
+        savedAnswer={answer}
+        onAnswer={onAnswer}
+      />
+    );
+  }
+
   if (block.block_type === "heading") {
     return (
       <h3 className="text-xl font-bold text-slate-900">{block.content}</h3>

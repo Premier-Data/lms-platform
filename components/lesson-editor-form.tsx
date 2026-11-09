@@ -16,6 +16,7 @@ import {
   ChevronDown,
   GripVertical,
   Film,
+  HelpCircle,
 } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { createClient } from "@/lib/supabase/client";
@@ -23,6 +24,13 @@ import { ImageUpload } from "@/components/image-upload";
 import { LessonPreview } from "@/components/lesson-preview";
 import { VideoUpload } from "@/components/video-upload";
 import { CodingDrillEditor } from "@/components/coding-drill-editor";
+import { QuestionBlockEditor } from "@/components/question-block-editor";
+import {
+  emptyQuestionConfig,
+  parseQuestionConfig,
+  serializeQuestionConfig,
+  validateQuestionConfig,
+} from "@/lib/question-block";
 
 type Lesson = {
   id: string;
@@ -55,7 +63,13 @@ type LessonEditorFormProps = {
   courseId: string;
 };
 
-type NewBlockType = "heading" | "text" | "image" | "video" | "coding_drill";
+type NewBlockType =
+  | "heading"
+  | "text"
+  | "image"
+  | "video"
+  | "coding_drill"
+  | "question";
 
 export function LessonEditorForm({
   lesson,
@@ -176,7 +190,10 @@ export function LessonEditorForm({
       id: crypto.randomUUID(),
       page_id: selectedPageId,
       block_type: type,
-      content: "",
+      content:
+        type === "question"
+          ? serializeQuestionConfig(emptyQuestionConfig())
+          : "",
       position: blocks.length,
     };
 
@@ -300,6 +317,21 @@ export function LessonEditorForm({
         "Please add at least one page."
       );
       return;
+    }
+
+    // Validate question blocks before saving
+    for (const page of pages) {
+      const pageQuestions = blocks.filter(
+        (b) => b.page_id === page.id && b.block_type === "question"
+      );
+      for (const q of pageQuestions) {
+        const problem = validateQuestionConfig(parseQuestionConfig(q.content));
+        if (problem) {
+          setSelectedPageId(page.id);
+          setMessage(`"${page.title || "Untitled page"}": ${problem}`);
+          return;
+        }
+      }
     }
 
     setIsSaving(true);
@@ -678,7 +710,7 @@ export function LessonEditorForm({
                             <div className="flex items-center justify-between border-b border-slate-200 bg-white px-4 py-3">
                               <span className="text-sm font-medium capitalize text-slate-600">
                                 {index + 1}.{" "}
-                                {block.block_type}
+                                {block.block_type.replace("_", " ")}
                               </span>
 
                               <button
@@ -755,6 +787,16 @@ export function LessonEditorForm({
                                   }
                                 />
                               )}
+
+                              {block.block_type === "question" && (
+                                <QuestionBlockEditor
+                                  value={block.content}
+                                  onChange={(serialized) =>
+                                    updateBlock(block.id, serialized)
+                                  }
+                                  lessonId={lesson.id}
+                                />
+                              )}
                             </div>
                           </div>
                         )
@@ -827,6 +869,22 @@ export function LessonEditorForm({
                           Coding Drill{" "}
                           <span className="font-normal text-slate-400">
                             (video + stats, graded)
+                          </span>
+                        </span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() =>
+                          addBlock("question")
+                        }
+                        className="flex items-center gap-3 rounded-xl border border-slate-200 p-4 text-left hover:bg-slate-50 sm:col-span-2"
+                      >
+                        <HelpCircle size={20} />
+                        <span className="text-sm font-medium">
+                          Question{" "}
+                          <span className="font-normal text-slate-400">
+                            (one-off quiz question for this page)
                           </span>
                         </span>
                       </button>

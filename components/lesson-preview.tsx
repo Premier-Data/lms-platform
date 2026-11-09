@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { QuestionBlockPlayer } from "@/components/question-block-player";
 import {
   Monitor,
   Smartphone,
@@ -379,6 +380,11 @@ function PreviewBlock({
         />
       </div>
     );
+  }
+
+  if (block.block_type === "question") {
+    // Interactive here so admins can try it; answers aren't saved in preview.
+    return <QuestionBlockPlayer key={block.content} content={block.content} />;
   }
 
   if (block.block_type === "coding_drill") {
