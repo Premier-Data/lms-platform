@@ -318,9 +318,12 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                 {result.detail
                   .filter((d) => !d.matched)
                   .map((d, i) => (
-                    <span
+                    <button
+                      type="button"
                       key={i}
-                      className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-200"
+                      onClick={() => seekTo(d.t)}
+                      title="Jump to this moment in the video"
+                      className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-200 hover:ring-pd-red"
                     >
                       <X size={11} className="text-red-500" />
                       <span
@@ -328,7 +331,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                         style={{ backgroundColor: statColor(d.stat) }}
                       />
                       {d.stat} @ {formatDrillTime(d.t)}
-                    </span>
+                    </button>
                   ))}
               </div>
             </div>

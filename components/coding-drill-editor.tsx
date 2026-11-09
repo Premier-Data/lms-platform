@@ -343,24 +343,24 @@ export function CodingDrillEditor({ value, onChange }: Props) {
                 {config.master.map((e, i) => (
                   <div
                     key={i}
-                    className="flex items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50"
+                    onClick={() => seekTo(e.t)}
+                    title="Jump to this moment in the video"
+                    className="flex cursor-pointer items-center gap-2 rounded-lg px-2 py-1.5 text-sm hover:bg-slate-50"
                   >
                     <span
                       className="h-2.5 w-2.5 shrink-0 rounded-full"
                       style={{ backgroundColor: statColor(e.stat) }}
                     />
-                    <button
-                      type="button"
-                      onClick={() => seekTo(e.t)}
-                      className="font-mono text-xs text-slate-500 hover:text-pd-red"
-                      title="Jump to this moment"
-                    >
+                    <span className="font-mono text-xs text-slate-500">
                       {formatDrillTime(e.t)}
-                    </button>
+                    </span>
                     <span className="font-medium text-slate-800">{e.stat}</span>
                     <button
                       type="button"
-                      onClick={() => removeMaster(i)}
+                      onClick={(ev) => {
+                        ev.stopPropagation();
+                        removeMaster(i);
+                      }}
                       className="ml-auto rounded p-1 text-slate-400 hover:bg-red-50 hover:text-red-600"
                     >
                       <Trash2 size={13} />
