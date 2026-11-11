@@ -8,6 +8,7 @@ import {
   Loader2,
   Link as LinkIcon,
 } from "lucide-react";
+import { parseYouTubeId } from "@/lib/coding-drill";
 
 type VideoUploadProps = {
   value: string;
@@ -242,16 +243,26 @@ export function VideoUpload({
 
           <div className="bg-slate-50 p-4">
 
-            <video
-              src={value}
-              controls
-              className="aspect-video w-full rounded-lg bg-black"
-              onError={() =>
-                setError(
-                  "The video could not be loaded."
-                )
-              }
-            />
+            {parseYouTubeId(value) ? (
+              <iframe
+                src={`https://www.youtube.com/embed/${parseYouTubeId(value)}`}
+                title="Video preview"
+                allow="accelerometer; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+                className="aspect-video w-full rounded-lg bg-black"
+              />
+            ) : (
+              <video
+                src={value}
+                controls
+                className="aspect-video w-full rounded-lg bg-black"
+                onError={() =>
+                  setError(
+                    "The video could not be loaded."
+                  )
+                }
+              />
+            )}
 
           </div>
 
