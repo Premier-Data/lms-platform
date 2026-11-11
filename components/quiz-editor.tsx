@@ -451,27 +451,13 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                 </p>
               </div>
 
-              <div className="flex items-center justify-between">
-                <label className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Randomize questions
-                </label>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const v = !config.randomize;
-                    setConfig({ ...config, randomize: v });
-                    saveConfig({ randomize: v });
-                  }}
-                  className={`relative h-6 w-11 rounded-full transition ${
-                    config.randomize ? "bg-pd-red" : "bg-slate-300"
-                  }`}
-                >
-                  <span
-                    className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition ${
-                      config.randomize ? "left-[22px]" : "left-0.5"
-                    }`}
-                  />
-                </button>
+              <div className="rounded-xl border border-slate-200 bg-white p-3 text-xs text-slate-500">
+                <p className="font-medium text-slate-700">Always randomised</p>
+                <p className="mt-1">
+                  Question order and answer order are shuffled on every
+                  attempt. Learners must reach the pass mark to continue and
+                  retake the quiz if they don&apos;t.
+                </p>
               </div>
 
               <div className="rounded-xl bg-white border border-slate-200 p-3 text-xs text-slate-500">

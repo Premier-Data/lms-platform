@@ -1,16 +1,28 @@
 "use client";
 
 import { parseYouTubeId } from "@/lib/coding-drill";
+import { RestrictedVideo } from "@/components/restricted-video";
 
-/** Question media: image, uploaded video file, or a YouTube link. */
+/**
+ * Question media: image, uploaded video file, or a YouTube link.
+ * Learner videos can't be skipped through (`restrictVideo`, on by default);
+ * the admin preview turns this off so authors can scrub freely.
+ */
 export function QuestionMedia({
   url,
   type,
+  restrictVideo = true,
 }: {
   url: string;
   type: string | null;
+  restrictVideo?: boolean;
 }) {
   if (type === "video") {
+    if (restrictVideo) {
+      // Doesn't block answering the question, just prevents skipping ahead.
+      return <RestrictedVideo url={url} />;
+    }
+
     const ytId = parseYouTubeId(url);
     if (ytId) {
       return (

@@ -20,6 +20,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { QuestionBlockPlayer } from "@/components/question-block-player";
+import { RestrictedVideo } from "@/components/restricted-video";
 import {
   isQuestionSatisfied,
   parseQuestionConfig,
@@ -64,9 +65,35 @@ type SavedProgress = {
   completed_lessons?: string[];
   /** learner answers to one-off question blocks, keyed by block id */
   question_answers?: Record<string, QuestionAnswer>;
+  /** ids of video blocks the learner has watched to the end */
+  watched_videos?: string[];
 };
 
-type GatedQuestion = { blockId: string; pageId: string; gate: QuestionGate };
+// Something on a page the learner must finish before moving on: a required
+// question, or a video that has to be watched to the end.
+type GatedItem = {
+  blockId: string;
+  pageId: string;
+  lessonId: string;
+  kind: "question" | "video" | "quiz";
+  gate: QuestionGate;
+};
+
+function isGatedMet(
+  item: GatedItem,
+  answers: Record<string, QuestionAnswer>,
+  watched: Set<string>,
+  completed: Set<string>,
+  passedQuizzes: Set<string>
+): boolean {
+  // A quiz lesson must be passed (pass mark reached) before moving on.
+  if (item.kind === "quiz") return passedQuizzes.has(item.lessonId);
+  if (item.kind === "video") {
+    // Lessons already completed before video gating existed stay unlocked.
+    return watched.has(item.blockId) || completed.has(item.lessonId);
+  }
+  return isQuestionSatisfied(item.gate, answers[item.blockId]);
+}
 
 type CourseViewerProps = {
   course: Course;
@@ -77,6 +104,10 @@ type CourseViewerProps = {
   lessons: Lesson[];
   pages: Page[];
   blocks: Block[];
+  /** quiz lessons that have questions (so can actually be passed) */
+  gatedQuizIds?: string[];
+  /** quiz lessons this learner has already passed */
+  passedQuizIds?: string[];
 };
 
 export function CourseViewer({
@@ -88,6 +119,8 @@ export function CourseViewer({
   lessons,
   pages,
   blocks,
+  gatedQuizIds = [],
+  passedQuizIds = [],
 }: CourseViewerProps) {
   const router = useRouter();
   const supabase = createClient();
@@ -106,35 +139,79 @@ export function CourseViewer({
 
   const saved = savedProgress as SavedProgress;
 
-  // Question blocks that gate progression, grouped by lesson (in page order).
+  // Blocks that gate progression (required questions and videos), grouped by
+  // lesson in page order.
   const gatedByLesson = useMemo(() => {
     const pageById = new Map(pages.map((p) => [p.id, p]));
-    const map = new Map<string, GatedQuestion[]>();
+    const map = new Map<string, GatedItem[]>();
+    for (const l of lessons) {
+      if (l.lesson_type === "quiz" && gatedQuizIds.includes(l.id)) {
+        map.set(l.id, [
+          {
+            blockId: l.id,
+            pageId: "",
+            lessonId: l.id,
+            kind: "quiz",
+            gate: "correct",
+          },
+        ]);
+      }
+    }
     for (const b of blocks) {
-      if (b.block_type !== "question") continue;
       const page = pageById.get(b.page_id);
       if (!page) continue;
-      const { gate } = parseQuestionConfig(b.content);
-      if (gate === "none") continue;
+      let item: GatedItem | null = null;
+      if (b.block_type === "question") {
+        const { gate } = parseQuestionConfig(b.content);
+        if (gate !== "none") {
+          item = {
+            blockId: b.id,
+            pageId: page.id,
+            lessonId: page.lesson_id,
+            kind: "question",
+            gate,
+          };
+        }
+      } else if (b.block_type === "video" && b.content) {
+        item = {
+          blockId: b.id,
+          pageId: page.id,
+          lessonId: page.lesson_id,
+          kind: "video",
+          gate: "answered",
+        };
+      }
+      if (!item) continue;
       const list = map.get(page.lesson_id) ?? [];
-      list.push({ blockId: b.id, pageId: page.id, gate });
+      list.push(item);
       map.set(page.lesson_id, list);
     }
     return map;
-  }, [pages, blocks]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pages, blocks, lessons]);
 
-  // Index of the first lesson with an unanswered required question, or -1.
-  function firstBlockedIndex(answers: Record<string, QuestionAnswer>): number {
+  // Index of the first lesson with an unfinished required item, or -1.
+  function firstBlockedIndex(
+    answers: Record<string, QuestionAnswer>,
+    watched: Set<string>,
+    completed: Set<string>,
+    passed: Set<string>
+  ): number {
     return orderedLessons.findIndex((l) =>
       (gatedByLesson.get(l.id) ?? []).some(
-        (q) => !isQuestionSatisfied(q.gate, answers[q.blockId])
+        (q) => !isGatedMet(q, answers, watched, completed, passed)
       )
     );
   }
 
   // Restore saved lesson, falling back to the first lesson. Never restore
   // beyond a lesson with an unanswered required question.
-  const blockedAtStart = firstBlockedIndex(saved.question_answers ?? {});
+  const blockedAtStart = firstBlockedIndex(
+    saved.question_answers ?? {},
+    new Set(saved.watched_videos ?? []),
+    new Set(saved.completed_lessons ?? []),
+    new Set(passedQuizIds)
+  );
   let initialLessonId =
     saved.lesson_id &&
     orderedLessons.some((l) => l.id === saved.lesson_id)
@@ -180,6 +257,8 @@ export function CourseViewer({
     // If a required question on an earlier page is unanswered (e.g. it was
     // added after the learner passed that page), resume at that page instead.
     const answers = saved.question_answers ?? {};
+    const watchedAtStart = new Set(saved.watched_videos ?? []);
+    const completedAtStart = new Set(saved.completed_lessons ?? []);
     const initialPages = pages
       .filter((p) => p.lesson_id === initialLessonId)
       .sort((a, b) => a.position - b.position);
@@ -188,7 +267,13 @@ export function CourseViewer({
       pending.some(
         (q) =>
           q.pageId === p.id &&
-          !isQuestionSatisfied(q.gate, answers[q.blockId])
+          !isGatedMet(
+            q,
+            answers,
+            watchedAtStart,
+            completedAtStart,
+            new Set(passedQuizIds)
+          )
       )
     );
     return firstPending !== -1 && restored > firstPending
@@ -204,26 +289,55 @@ export function CourseViewer({
   const [questionAnswers, setQuestionAnswers] = useState<
     Record<string, QuestionAnswer>
   >(saved.question_answers ?? {});
+  const [watchedVideos, setWatchedVideos] = useState<Set<string>>(
+    new Set(saved.watched_videos ?? [])
+  );
 
-  const blockedIndex = firstBlockedIndex(questionAnswers);
+  const [passedQuizzes, setPassedQuizzes] = useState<Set<string>>(
+    new Set(passedQuizIds)
+  );
+
+  const blockedIndex = firstBlockedIndex(
+    questionAnswers,
+    watchedVideos,
+    completedLessons,
+    passedQuizzes
+  );
   // Lessons after the first one with an unanswered required question are locked.
   const isLessonLocked = (index: number) =>
     blockedIndex !== -1 && index > blockedIndex;
 
   const pendingInLesson = activeLesson
     ? (gatedByLesson.get(activeLesson.id) ?? []).filter(
-        (q) => !isQuestionSatisfied(q.gate, questionAnswers[q.blockId])
+        (q) =>
+          !isGatedMet(
+            q,
+            questionAnswers,
+            watchedVideos,
+            completedLessons,
+            passedQuizzes
+          )
       )
     : [];
   const pendingCount = pendingInLesson.length;
 
   const currentPageId = lessonPages[pageIndex]?.id;
-  const pendingOnPage = pendingInLesson.filter(
+  const pendingItemsOnPage = pendingInLesson.filter(
     (q) => q.pageId === currentPageId
-  ).length;
+  );
+  const pendingOnPage = pendingItemsOnPage.length;
 
   function recordAnswer(blockId: string, answer: QuestionAnswer) {
     setQuestionAnswers((prev) => ({ ...prev, [blockId]: answer }));
+  }
+
+  function markVideoWatched(blockId: string) {
+    setWatchedVideos((prev) => {
+      if (prev.has(blockId)) return prev;
+      const next = new Set(prev);
+      next.add(blockId);
+      return next;
+    });
   }
 
   // A lesson counts as "done" once the learner reaches its last page and has
@@ -259,8 +373,9 @@ export function CourseViewer({
       page_index: pageIndex,
       completed_lessons: Array.from(completedLessons),
       question_answers: questionAnswers,
+      watched_videos: Array.from(watchedVideos),
     }),
-    [activeLessonId, pageIndex, completedLessons, questionAnswers]
+    [activeLessonId, pageIndex, completedLessons, questionAnswers, watchedVideos]
   );
 
   async function persistProgress() {
@@ -313,7 +428,7 @@ export function CourseViewer({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeLessonId, pageIndex, completedLessons, questionAnswers]);
+  }, [activeLessonId, pageIndex, completedLessons, questionAnswers, watchedVideos]);
 
   function changeLesson(lessonId: string) {
     const index = orderedLessons.findIndex((l) => l.id === lessonId);
@@ -444,7 +559,11 @@ export function CourseViewer({
                     const locked = isLessonLocked(
                       orderedLessons.findIndex((l) => l.id === lesson.id)
                     );
-                    const done = !locked && completedLessons.has(lesson.id);
+                    const done =
+                      !locked &&
+                      completedLessons.has(lesson.id) &&
+                      (!gatedQuizIds.includes(lesson.id) ||
+                        passedQuizzes.has(lesson.id));
                     return (
                       <button
                         key={lesson.id}
@@ -505,7 +624,8 @@ export function CourseViewer({
               lessonTitle={activeLesson.title}
               onComplete={(passed) => {
                 if (passed) {
-                  // Mark this quiz lesson as done
+                  // Record the pass (this unlocks later lessons) and mark done
+                  setPassedQuizzes((prev) => new Set(prev).add(activeLesson.id));
                   setCompletedLessons((prev) => {
                     const next = new Set(prev);
                     next.add(activeLesson.id);
@@ -513,8 +633,10 @@ export function CourseViewer({
                   });
 
                   if (!isLastLesson) {
-                    // Advance to next lesson
-                    goToLesson(currentLessonIndex + 1);
+                    // Advance to next lesson. Goes straight there: the lock
+                    // state hasn't re-rendered yet but this quiz is now passed.
+                    setActiveLessonId(orderedLessons[currentLessonIndex + 1].id);
+                    setPageIndex(0);
                   } else {
                     // Last lesson — mark course complete and go to dashboard
                     markComplete();
@@ -579,6 +701,8 @@ export function CourseViewer({
                             block={block}
                             answer={questionAnswers[block.id]}
                             onAnswer={(a) => recordAnswer(block.id, a)}
+                            watched={watchedVideos.has(block.id)}
+                            onVideoWatched={() => markVideoWatched(block.id)}
                           />
                         ))}
                     </div>
@@ -618,9 +742,13 @@ export function CourseViewer({
               {pendingOnPage > 0 && (
                 <p className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-8 py-2 text-xs text-slate-500">
                   <Lock size={12} />
-                  {pendingOnPage === 1
-                    ? "Answer the question above to continue."
-                    : "Answer the questions above to continue."}
+                  {pendingItemsOnPage.every((q) => q.kind === "video")
+                    ? "Watch the video to the end to continue."
+                    : pendingItemsOnPage.every((q) => q.kind === "question")
+                      ? pendingOnPage === 1
+                        ? "Answer the question above to continue."
+                        : "Answer the questions above to continue."
+                      : "Finish the video and questions above to continue."}
                 </p>
               )}
 
@@ -704,10 +832,14 @@ function ContentBlock({
   block,
   answer,
   onAnswer,
+  watched,
+  onVideoWatched,
 }: {
   block: Block;
   answer?: QuestionAnswer;
   onAnswer?: (answer: QuestionAnswer) => void;
+  watched?: boolean;
+  onVideoWatched?: () => void;
 }) {
   if (block.block_type === "question") {
     return (
@@ -744,10 +876,13 @@ function ContentBlock({
 
   if (block.block_type === "video") {
     if (!block.content) return null;
+    // Can't be skipped through until it has been watched to the end once.
     return (
-      <div className="aspect-video overflow-hidden rounded-xl bg-slate-900">
-        <video src={block.content} controls className="h-full w-full" />
-      </div>
+      <RestrictedVideo
+        url={block.content}
+        restricted={!watched}
+        onEnded={onVideoWatched}
+      />
     );
   }
 

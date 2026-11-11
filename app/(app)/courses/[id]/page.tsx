@@ -177,6 +177,33 @@ export default async function CourseViewerPage({
           .order("position", { ascending: true })
       : { data: [] };
 
+  // Quiz gating: which quiz lessons can be passed (have questions), and which
+  // this learner has already passed. Learners must pass a quiz to move on.
+  const quizLessonIds = (lessons ?? [])
+    .filter((l) => l.lesson_type === "quiz")
+    .map((l) => l.id);
+  let gatedQuizIds: string[] = [];
+  let passedQuizIds: string[] = [];
+  if (quizLessonIds.length > 0) {
+    const [{ data: quizQuestions }, { data: passedAttempts }] =
+      await Promise.all([
+        supabase
+          .from("quiz_questions")
+          .select("lesson_id")
+          .in("lesson_id", quizLessonIds),
+        supabase
+          .from("quiz_attempts")
+          .select("lesson_id")
+          .eq("user_id", user?.id ?? "")
+          .eq("passed", true)
+          .in("lesson_id", quizLessonIds),
+      ]);
+    gatedQuizIds = [...new Set((quizQuestions ?? []).map((q) => q.lesson_id))];
+    passedQuizIds = [
+      ...new Set((passedAttempts ?? []).map((a) => a.lesson_id)),
+    ];
+  }
+
   // progress shape: { lesson_id?: string, page_index?: number, completed_lessons?: string[] }
   const progress =
     (assignment as { progress?: unknown }).progress &&
@@ -194,6 +221,8 @@ export default async function CourseViewerPage({
       lessons={lessons ?? []}
       pages={pages ?? []}
       blocks={blocks ?? []}
+      gatedQuizIds={gatedQuizIds}
+      passedQuizIds={passedQuizIds}
     />
   );
 }

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState, useCallback, useRef } from "react";
+import { useEffect, useState, useRef } from "react";
 import {
   CheckCircle2,
   XCircle,
@@ -63,6 +63,38 @@ type AnswerState = {
 };
 
 type Phase = "loading" | "intro" | "question" | "feedback" | "results";
+
+// --- Attempt randomisation ---
+
+function shuffle<T>(items: T[]): T[] {
+  const a = [...items];
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [a[i], a[j]] = [a[j], a[i]];
+  }
+  return a;
+}
+
+// True/False reads oddly when flipped, so keep that order.
+function isTrueFalse(options: Option[]): boolean {
+  return (
+    options.length === 2 &&
+    options.every((o) => /^(true|false)$/i.test(o.content.trim()))
+  );
+}
+
+/**
+ * A fresh random version of the quiz for one attempt: question order and
+ * answer-option order are both shuffled, so a learner cannot just remember
+ * "the answer is the 3rd one" between attempts.
+ */
+function buildAttempt(qs: Question[]): Question[] {
+  return shuffle(qs).map((q) =>
+    q.question_type === "short_answer" || isTrueFalse(q.quiz_options)
+      ? q
+      : { ...q, quiz_options: shuffle(q.quiz_options) }
+  );
+}
 
 // --- Component ---
 
@@ -154,16 +186,9 @@ export function QuizTaker({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [lessonId]);
 
-  // Randomize questions
-  const orderedQuestions = useMemo(() => {
-    if (!config?.randomize) return questions;
-    const shuffled = [...questions];
-    for (let i = shuffled.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [shuffled[i], shuffled[j]] = [shuffled[j], shuffled[i]];
-    }
-    return shuffled;
-  }, [questions, config?.randomize]);
+  // The shuffled question set for the current attempt (re-shuffled on every
+  // start / retry, always).
+  const [orderedQuestions, setOrderedQuestions] = useState<Question[]>([]);
 
   const currentQuestion = orderedQuestions[currentIndex] ?? null;
 
@@ -196,10 +221,12 @@ export function QuizTaker({
 
   // Start the quiz
   function startQuiz() {
+    const attempt = buildAttempt(questions);
+    setOrderedQuestions(attempt);
     setCurrentIndex(0);
     setAnswers([]);
     setCurrentAnswer({
-      questionId: orderedQuestions[0]?.id ?? "",
+      questionId: attempt[0]?.id ?? "",
       selectedOptionIds: [],
       textAnswer: "",
     });
@@ -284,11 +311,16 @@ export function QuizTaker({
   }
 
   // Handle time running out
-  const handleTimeUp = useCallback(() => {
+  // Always calls the latest finalizeQuiz (the timer interval would otherwise
+  // hold a stale copy with no questions or answers).
+  const finalizeRef = useRef<() => void>(() => {});
+  useEffect(() => {
+    finalizeRef.current = finalizeQuiz;
+  });
+  function handleTimeUp() {
     // Submit whatever has been answered so far
-    finalizeQuiz();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []);
+    finalizeRef.current();
+  }
 
   // Finalize quiz: calculate score, write to DB
   async function finalizeQuiz() {
@@ -473,7 +505,7 @@ export function QuizTaker({
 
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-slate-600">
             <span className="flex items-center gap-1.5">
-              <span className="font-semibold">{orderedQuestions.length}</span>{" "}
+              <span className="font-semibold">{questions.length}</span>{" "}
               questions
             </span>
             <span className="flex items-center gap-1.5">
@@ -849,6 +881,14 @@ export function QuizTaker({
                     <RotateCcw size={16} />
                     Retry Quiz
                   </button>
+                )}
+
+                {!passed && canRetry && (
+                  <p className="w-full text-sm text-slate-500">
+                    You need {config?.pass_mark ?? 80}% to pass. Retry the quiz
+                    to continue; the questions and answers will be in a new
+                    order.
+                  </p>
                 )}
 
                 {!passed && !canRetry && (

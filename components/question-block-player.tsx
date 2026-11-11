@@ -80,7 +80,12 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
     <div className="rounded-2xl border border-slate-200 bg-white p-6">
       {config.media_url && (
         <div className="mb-5 overflow-hidden rounded-xl">
-          <QuestionMedia url={config.media_url} type={config.media_type} />
+          <QuestionMedia
+            url={config.media_url}
+            type={config.media_type}
+            // Admin preview (no onAnswer) can scrub freely.
+            restrictVideo={!!onAnswer}
+          />
         </div>
       )}
 

@@ -26,7 +26,7 @@ type Props = {
 
 // Loads the YouTube IFrame API once and resolves when ready.
 let ytApiPromise: Promise<void> | null = null;
-function loadYouTubeApi(): Promise<void> {
+export function loadYouTubeApi(): Promise<void> {
   if (typeof window === "undefined") return Promise.resolve();
   // Already loaded.
   if ((window as unknown as { YT?: { Player?: unknown } }).YT?.Player) {
