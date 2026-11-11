@@ -488,9 +488,45 @@ function QuestionForm({
       ...q,
       quiz_options: [
         ...q.quiz_options,
-        { content: "", is_correct: false, position: q.quiz_options.length },
+        {
+          content: "",
+          // For short answers every listed option is an accepted answer.
+          is_correct: q.question_type === "short_answer",
+          position: q.quiz_options.length,
+        },
       ],
     });
+  }
+
+  function changeType(type: string) {
+    if (type === q.question_type) return;
+    let opts = q.quiz_options;
+    if (type === "short_answer") {
+      // Options become the accepted answers (all correct, no images).
+      opts = opts.map((o) => ({ ...o, is_correct: true, image_url: null }));
+    } else if (q.question_type === "short_answer") {
+      opts = opts.map((o) => ({ ...o, is_correct: false }));
+    } else if (type === "single_choice") {
+      let seen = false;
+      opts = opts.map((o) => {
+        if (o.is_correct && !seen) {
+          seen = true;
+          return o;
+        }
+        return { ...o, is_correct: false };
+      });
+    }
+    setQ({ ...q, question_type: type, quiz_options: opts });
+  }
+
+  // Short answers: drop blank accepted answers when saving.
+  function save() {
+    if (q.question_type === "short_answer") {
+      const answers = q.quiz_options.filter((o) => o.content.trim());
+      onSave({ ...q, quiz_options: answers });
+    } else {
+      onSave(q);
+    }
   }
 
   function removeOption(idx: number) {
@@ -507,7 +543,7 @@ function QuestionForm({
         <div className="flex items-center gap-3">
           <select
             value={q.question_type}
-            onChange={(e) => setQ({ ...q, question_type: e.target.value })}
+            onChange={(e) => changeType(e.target.value)}
             className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
           >
             <option value="single_choice">Single Choice</option>
@@ -713,10 +749,51 @@ function QuestionForm({
         )}
 
         {q.question_type === "short_answer" && (
-          <div className="rounded-xl bg-slate-50 border border-dashed border-slate-300 p-4 text-center text-sm text-slate-400">
-            Learners will type their answer in a text field.
-            <br />
-            Short answers are manually graded or matched exactly.
+          <div>
+            <label className="mb-2 block text-xs font-medium text-slate-500">
+              Accepted answers{" "}
+              <span className="text-slate-400">
+                (learners type their answer; not case sensitive, any one of
+                these is correct)
+              </span>
+            </label>
+
+            <div className="space-y-2">
+              {q.quiz_options.map((opt, idx) => (
+                <div key={idx} className="flex items-center gap-2">
+                  <input
+                    type="text"
+                    value={opt.content}
+                    onChange={(e) =>
+                      updateOption(idx, {
+                        content: e.target.value,
+                        is_correct: true,
+                      })
+                    }
+                    placeholder={`Accepted answer ${idx + 1}`}
+                    className="flex-1 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none transition focus:border-pd-red"
+                  />
+                  {q.quiz_options.length > 1 && (
+                    <button
+                      type="button"
+                      onClick={() => removeOption(idx)}
+                      className="rounded-lg p-1.5 text-slate-400 hover:bg-red-50 hover:text-red-500"
+                    >
+                      <X size={14} />
+                    </button>
+                  )}
+                </div>
+              ))}
+            </div>
+
+            <button
+              type="button"
+              onClick={addOption}
+              className="mt-3 inline-flex items-center gap-1.5 text-sm font-medium text-pd-red hover:text-pd-red-hover"
+            >
+              <Plus size={14} />
+              Add accepted answer
+            </button>
           </div>
         )}
 
@@ -753,7 +830,7 @@ function QuestionForm({
 
         <button
           type="button"
-          onClick={() => onSave(q)}
+          onClick={save}
           disabled={saving}
           className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:opacity-50"
         >
