@@ -12,6 +12,7 @@ import {
   Play,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { QuestionMedia } from "@/components/question-media";
 
 // --- Types ---
 
@@ -543,20 +544,10 @@ export function QuizTaker({
           {/* Media */}
           {currentQuestion.media_url && (
             <div className="mb-6 overflow-hidden rounded-xl">
-              {currentQuestion.media_type === "video" ? (
-                <video
-                  src={currentQuestion.media_url}
-                  controls
-                  className="w-full"
-                />
-              ) : (
-                // eslint-disable-next-line @next/next/no-img-element
-                <img
-                  src={currentQuestion.media_url}
-                  alt=""
-                  className="w-full object-cover"
-                />
-              )}
+              <QuestionMedia
+                url={currentQuestion.media_url}
+                type={currentQuestion.media_type}
+              />
             </div>
           )}
 

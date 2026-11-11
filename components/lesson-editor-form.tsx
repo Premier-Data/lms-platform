@@ -25,7 +25,11 @@ import { LessonPreview } from "@/components/lesson-preview";
 import { VideoUpload } from "@/components/video-upload";
 import { CodingDrillEditor } from "@/components/coding-drill-editor";
 import { QuestionBlockEditor } from "@/components/question-block-editor";
+import { QuestionImportButton } from "@/components/question-import-button";
+import type { ImportedQuestion } from "@/lib/question-import";
 import {
+  type QuestionConfig,
+  type QuestionGate,
   emptyQuestionConfig,
   parseQuestionConfig,
   serializeQuestionConfig,
@@ -126,6 +130,67 @@ export function LessonEditorForm({
 
     setPages((current) => [...current, newPage]);
     setSelectedPageId(newPage.id);
+  }
+
+  // Bulk import: each question becomes its own page holding one question block.
+  function importQuestions(
+    imported: ImportedQuestion[],
+    options: { gate: QuestionGate }
+  ) {
+    if (imported.length === 0) return;
+
+    // If the lesson only has empty pages, replace them rather than leaving
+    // blank pages in front of the imported ones.
+    const allEmpty = pages.every(
+      (p) => !blocks.some((b) => b.page_id === p.id)
+    );
+    const basePages = allEmpty ? [] : pages;
+    const baseBlocks = allEmpty ? [] : blocks;
+
+    const newPages: LessonPage[] = [];
+    const newBlocks: LessonBlock[] = [];
+
+    imported.forEach((q, i) => {
+      const pageId = crypto.randomUUID();
+      newPages.push({
+        id: pageId,
+        lesson_id: lesson.id,
+        title: q.text.length > 60 ? `${q.text.slice(0, 57)}...` : q.text,
+        position: basePages.length + i,
+      });
+
+      const config: QuestionConfig = {
+        question_text: q.text,
+        question_type: q.type,
+        media_url: q.media_url,
+        media_type: q.media_type,
+        options: q.options.map((o) => ({
+          id: crypto.randomUUID(),
+          content: o.content,
+          is_correct: o.is_correct,
+          image_url: null,
+        })),
+        explanation: null,
+        gate: options.gate,
+      };
+
+      newBlocks.push({
+        id: crypto.randomUUID(),
+        page_id: pageId,
+        block_type: "question",
+        content: serializeQuestionConfig(config),
+        position: 0,
+      });
+    });
+
+    setPages([...basePages, ...newPages]);
+    setBlocks([...baseBlocks, ...newBlocks]);
+    setSelectedPageId(newPages[0].id);
+    setMessage(
+      `Imported ${imported.length} question${
+        imported.length === 1 ? "" : "s"
+      }. Click Save Lesson to keep them.`
+    );
   }
 
   function updatePageTitle(
@@ -633,6 +698,15 @@ export function LessonEditorForm({
                   <Plus size={17} />
                   Add Page
                 </button>
+
+                <div className="mt-2 [&>button]:w-full [&>button]:justify-center">
+                  <QuestionImportButton
+                    lessonId={lesson.id}
+                    showGate
+                    onImport={importQuestions}
+                    hint="Each question in the sheet becomes its own page with one question on it. Nothing is saved until you click Save Lesson."
+                  />
+                </div>
               </div>
             </div>
 

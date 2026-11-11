@@ -12,6 +12,8 @@ import {
 } from "lucide-react";
 import { ImageUpload } from "@/components/image-upload";
 import { VideoUpload } from "@/components/video-upload";
+import { QuestionImportButton } from "@/components/question-import-button";
+import type { ImportedQuestion } from "@/lib/question-import";
 
 type Option = {
   id?: string;
@@ -126,6 +128,49 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
     setSaving(false);
   }
 
+  // Bulk import questions (one request per question, in order)
+  async function importQuestions(imported: ImportedQuestion[]) {
+    const created: Question[] = [];
+    for (let i = 0; i < imported.length; i++) {
+      const q = imported[i];
+      const res = await fetch("/api/admin/quiz", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          lesson_id: lessonId,
+          position: questions.length + created.length,
+          question_text: q.text,
+          question_type: q.type,
+          media_url: q.media_url,
+          media_type: q.media_type,
+          points: 1,
+          options: q.options.map((o) => ({
+            content: o.content,
+            is_correct: o.is_correct,
+          })),
+        }),
+      });
+      if (!res.ok) {
+        if (created.length > 0) setQuestions((prev) => [...prev, ...created]);
+        const data = await res.json().catch(() => ({}));
+        throw new Error(
+          `Imported ${created.length} of ${imported.length}. Row ${q.row} failed: ${
+            data.error || "could not save"
+          }`
+        );
+      }
+      const data = await res.json();
+      created.push(data.question);
+    }
+    setQuestions((prev) => [...prev, ...created]);
+    if (created.length > 0) setActiveQuestionId(created[0].id);
+    fetch("/api/admin/unpublish-on-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ lesson_id: lessonId }),
+    });
+  }
+
   // Save the current question
   const saveQuestion = useCallback(
     async (question: Question) => {
@@ -236,6 +281,13 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
             <Plus size={16} />
             Add question
           </button>
+          <div className="mt-2 [&>button]:w-full [&>button]:justify-center">
+            <QuestionImportButton
+              lessonId={lessonId}
+              onImport={importQuestions}
+              hint="Questions from the sheet are added to the end of this quiz."
+            />
+          </div>
         </div>
       </div>
 

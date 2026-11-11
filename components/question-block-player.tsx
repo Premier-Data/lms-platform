@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { CheckCircle2, ChevronRight, RotateCcw, XCircle } from "lucide-react";
+import { QuestionMedia } from "@/components/question-media";
 import {
   gradeQuestion,
   parseQuestionConfig,
@@ -79,12 +80,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
     <div className="rounded-2xl border border-slate-200 bg-white p-6">
       {config.media_url && (
         <div className="mb-5 overflow-hidden rounded-xl">
-          {config.media_type === "video" ? (
-            <video src={config.media_url} controls className="w-full" />
-          ) : (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={config.media_url} alt="" className="w-full object-cover" />
-          )}
+          <QuestionMedia url={config.media_url} type={config.media_type} />
         </div>
       )}
 
