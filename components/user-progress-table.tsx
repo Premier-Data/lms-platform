@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatDuration } from "@/lib/time-tracking";
 
 export type UserProgressRow = {
   id: string;
@@ -14,6 +15,8 @@ export type UserProgressRow = {
   totalAttempts: number;
   drillAttempts: number;
   bestDrillAccuracy: number | null;
+  /** total active learning time across all courses, in seconds */
+  totalTimeSeconds: number;
 };
 
 type SortKey =
@@ -25,7 +28,8 @@ type SortKey =
   | "avgQuizScore"
   | "totalAttempts"
   | "drillAttempts"
-  | "bestDrillAccuracy";
+  | "bestDrillAccuracy"
+  | "totalTimeSeconds";
 
 export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
   const [search, setSearch] = useState("");
@@ -73,6 +77,7 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
           <option value="totalAttempts">Sort: Quiz Attempts</option>
           <option value="drillAttempts">Sort: Drill Attempts</option>
           <option value="bestDrillAccuracy">Sort: Best Drill %</option>
+          <option value="totalTimeSeconds">Sort: Time Spent</option>
         </select>
         <button
           onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
@@ -113,6 +118,9 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
                 <th className="px-5 py-3 font-semibold text-slate-700">
                   Best Drill %
                 </th>
+                <th className="px-5 py-3 font-semibold text-slate-700">
+                  Time Spent
+                </th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
@@ -142,12 +150,15 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
                       ? `${u.bestDrillAccuracy}%`
                       : "—"}
                   </td>
+                  <td className="px-5 py-3 text-slate-700">
+                    {formatDuration(u.totalTimeSeconds)}
+                  </td>
                 </tr>
               ))}
               {view.length === 0 && (
                 <tr>
                   <td
-                    colSpan={9}
+                    colSpan={10}
                     className="px-5 py-8 text-center text-slate-400"
                   >
                     No users found.

@@ -171,6 +171,7 @@ function YouTubeRestricted({
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     let player: any = null;
     let max = 0;
+    const mediaId = `yt-${ytId}-${Math.random().toString(36).slice(2)}`;
 
     loadYouTubeApi().then(() => {
       if (cancelled || !containerRef.current) return;
@@ -193,6 +194,12 @@ function YouTubeRestricted({
         events: {
           onStateChange: (e: { data: number }) => {
             if (e.data === 0) onEnded(); // ENDED
+            // Tell the time tracker whether this video is playing (1 = playing).
+            window.dispatchEvent(
+              new CustomEvent("lms-media", {
+                detail: { id: mediaId, playing: e.data === 1 },
+              })
+            );
           },
         },
       });
@@ -214,6 +221,11 @@ function YouTubeRestricted({
     return () => {
       cancelled = true;
       if (timer) clearInterval(timer);
+      window.dispatchEvent(
+        new CustomEvent("lms-media", {
+          detail: { id: mediaId, playing: false },
+        })
+      );
       try {
         player?.destroy?.();
       } catch {

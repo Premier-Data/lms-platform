@@ -1,3 +1,4 @@
+import { Fragment } from "react";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import {
@@ -12,6 +13,7 @@ import {
 } from "lucide-react";
 import { UserProgressTable } from "@/components/user-progress-table";
 import { CoursePerformanceTable } from "@/components/course-performance-table";
+import { formatDuration, readTimeSpent } from "@/lib/time-tracking";
 
 export default async function ReportsPage() {
   const supabase = await createClient();
@@ -28,6 +30,8 @@ export default async function ReportsPage() {
     { data: allQuestions },
     { data: allDrillAttempts },
     { data: allLessons },
+    { data: allModules },
+    { data: allProgress },
   ] = await Promise.all([
     admin.auth.admin.listUsers({ perPage: 1000 }),
     supabase.from("courses").select("id, title, status"),
@@ -54,8 +58,41 @@ export default async function ReportsPage() {
       .select(
         "id, block_id, user_id, accuracy, exact, missed, extra, created_at"
       ),
-    supabase.from("lessons").select("id, title, lesson_type"),
+    supabase
+      .from("lessons")
+      .select("id, title, lesson_type, module_id, position"),
+    supabase.from("modules").select("id, course_id, title, position"),
+    // Kept separate so reports still load if the progress column is missing.
+    supabase.from("course_assignments").select("course_id, user_id, progress"),
   ]);
+
+  // --- Time spent (active seconds per lesson, from learner progress) ---
+  const timeRows = (allProgress ?? []).map((a) => ({
+    courseId: a.course_id as string,
+    userId: a.user_id as string,
+    perLesson: readTimeSpent(a.progress),
+  }));
+  const sumValues = (o: Record<string, number>) =>
+    Object.values(o).reduce((s, n) => s + n, 0);
+
+  const timeByUser = new Map<string, number>();
+  const timeByCourse = new Map<string, { total: number; learners: number }>();
+  const timeByLesson = new Map<string, { total: number; learners: number }>();
+  for (const r of timeRows) {
+    const total = sumValues(r.perLesson);
+    if (total <= 0) continue;
+    timeByUser.set(r.userId, (timeByUser.get(r.userId) ?? 0) + total);
+    const c = timeByCourse.get(r.courseId) ?? { total: 0, learners: 0 };
+    c.total += total;
+    c.learners += 1;
+    timeByCourse.set(r.courseId, c);
+    for (const [lessonId, secs] of Object.entries(r.perLesson)) {
+      const l = timeByLesson.get(lessonId) ?? { total: 0, learners: 0 };
+      l.total += secs;
+      l.learners += 1;
+      timeByLesson.set(lessonId, l);
+    }
+  }
 
   const users = allUsers?.users ?? [];
   const courses = allCourses ?? [];
@@ -139,6 +176,7 @@ export default async function ReportsPage() {
       totalAttempts: userAttempts.length,
       drillAttempts: drill?.attempts ?? 0,
       bestDrillAccuracy: drill ? drill.best : null,
+      totalTimeSeconds: timeByUser.get(u.id) ?? 0,
     };
   });
 
@@ -190,8 +228,50 @@ export default async function ReportsPage() {
           ? Math.round((completed.length / courseAssignments.length) * 100)
           : 0,
       avgCompletionDays,
+      avgTimeSeconds: (() => {
+        const t = timeByCourse.get(c.id);
+        return t && t.learners > 0 ? Math.round(t.total / t.learners) : null;
+      })(),
     };
   });
+
+  // Course -> module -> lesson breakdown for the Time Spent section.
+  const timeBreakdown = courses
+    .map((c) => {
+      const mods = (allModules ?? [])
+        .filter((m) => m.course_id === c.id)
+        .sort((a, b) => a.position - b.position)
+        .map((m) => {
+          const lessonRows = (allLessons ?? [])
+            .filter((l) => l.module_id === m.id)
+            .sort((a, b) => a.position - b.position)
+            .map((l) => {
+              const t = timeByLesson.get(l.id);
+              return {
+                id: l.id as string,
+                title: l.title as string,
+                total: t?.total ?? 0,
+                learners: t?.learners ?? 0,
+              };
+            });
+          return {
+            id: m.id as string,
+            title: m.title as string,
+            total: lessonRows.reduce((s, l) => s + l.total, 0),
+            lessons: lessonRows,
+          };
+        });
+      const courseTime = timeByCourse.get(c.id);
+      return {
+        id: c.id as string,
+        title: c.title as string,
+        total: courseTime?.total ?? 0,
+        learners: courseTime?.learners ?? 0,
+        modules: mods,
+      };
+    })
+    .filter((c) => c.total > 0)
+    .sort((a, b) => b.total - a.total);
 
   // --- Quiz Analytics ---
   // Group attempts by lesson_id (each quiz is a lesson)
@@ -422,6 +502,105 @@ export default async function ReportsPage() {
           Course Performance
         </h2>
         <CoursePerformanceTable rows={coursePerformance} />
+      </section>
+
+      {/* Time Spent */}
+      <section>
+        <h2 className="mb-1 text-lg font-semibold text-slate-900">
+          Time Spent
+        </h2>
+        <p className="mb-4 text-sm text-slate-500">
+          Active learning time only. Time is counted while the tab is open and
+          the learner is interacting or watching a video, and stops after 90
+          seconds of inactivity. Expand a course to see modules and lessons.
+        </p>
+        {timeBreakdown.length === 0 ? (
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-white px-6 py-10 text-center text-sm text-slate-400">
+            No time recorded yet. It starts building up as learners work
+            through courses.
+          </div>
+        ) : (
+          <div className="space-y-3">
+            {timeBreakdown.map((c) => (
+              <details
+                key={c.id}
+                className="group overflow-hidden rounded-2xl border border-slate-200 bg-white"
+              >
+                <summary className="flex cursor-pointer list-none items-center justify-between gap-4 px-5 py-4 hover:bg-slate-50/60">
+                  <span className="font-medium text-slate-900">{c.title}</span>
+                  <span className="flex shrink-0 items-center gap-6 text-sm text-slate-600">
+                    <span>
+                      Total{" "}
+                      <span className="font-semibold text-slate-900">
+                        {formatDuration(c.total)}
+                      </span>
+                    </span>
+                    <span>
+                      Avg per learner{" "}
+                      <span className="font-semibold text-slate-900">
+                        {formatDuration(
+                          c.learners > 0 ? c.total / c.learners : 0
+                        )}
+                      </span>
+                    </span>
+                    <span className="text-slate-400">
+                      {c.learners} learner{c.learners !== 1 ? "s" : ""}
+                    </span>
+                  </span>
+                </summary>
+                <div className="overflow-x-auto border-t border-slate-100">
+                  <table className="w-full text-left text-sm">
+                    <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
+                      <tr>
+                        <th className="px-5 py-2 font-semibold">
+                          Module / Lesson
+                        </th>
+                        <th className="px-5 py-2 font-semibold">Total</th>
+                        <th className="px-5 py-2 font-semibold">Learners</th>
+                        <th className="px-5 py-2 font-semibold">
+                          Avg per learner
+                        </th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100">
+                      {c.modules.map((m) => (
+                        <Fragment key={m.id}>
+                          <tr className="bg-slate-50/60">
+                            <td className="px-5 py-2 font-semibold text-slate-800">
+                              {m.title}
+                            </td>
+                            <td className="px-5 py-2 font-semibold text-slate-800">
+                              {formatDuration(m.total)}
+                            </td>
+                            <td colSpan={2} />
+                          </tr>
+                          {m.lessons.map((l) => (
+                            <tr key={l.id}>
+                              <td className="py-2 pl-10 pr-5 text-slate-700">
+                                {l.title}
+                              </td>
+                              <td className="px-5 py-2 text-slate-700">
+                                {formatDuration(l.total)}
+                              </td>
+                              <td className="px-5 py-2 text-slate-500">
+                                {l.learners}
+                              </td>
+                              <td className="px-5 py-2 text-slate-700">
+                                {formatDuration(
+                                  l.learners > 0 ? l.total / l.learners : 0
+                                )}
+                              </td>
+                            </tr>
+                          ))}
+                        </Fragment>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </details>
+            ))}
+          </div>
+        )}
       </section>
 
       {/* Quiz Analytics */}

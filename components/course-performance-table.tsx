@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { formatDuration } from "@/lib/time-tracking";
 
 export type CoursePerformanceRow = {
   id: string;
@@ -12,6 +13,8 @@ export type CoursePerformanceRow = {
   inProgress: number;
   completionRate: number;
   avgCompletionDays: number | null;
+  /** average active learning time per learner, in seconds */
+  avgTimeSeconds: number | null;
 };
 
 type SortKey =
@@ -22,7 +25,8 @@ type SortKey =
   | "completed"
   | "inProgress"
   | "completionRate"
-  | "avgCompletionDays";
+  | "avgCompletionDays"
+  | "avgTimeSeconds";
 
 export function CoursePerformanceTable({
   rows,
@@ -121,6 +125,7 @@ export function CoursePerformanceTable({
           <option value="inProgress">Sort: In Progress</option>
           <option value="completionRate">Sort: Completion %</option>
           <option value="avgCompletionDays">Sort: Avg Days</option>
+          <option value="avgTimeSeconds">Sort: Avg Time</option>
         </select>
         <button
           onClick={() => setSortDir((d) => (d === "asc" ? "desc" : "asc"))}
@@ -159,6 +164,9 @@ export function CoursePerformanceTable({
                 </th>
                 <th className="px-5 py-3 font-semibold text-slate-700">
                   Avg Days to Complete
+                </th>
+                <th className="px-5 py-3 font-semibold text-slate-700">
+                  Avg Time Spent
                 </th>
               </tr>
             </thead>
@@ -224,12 +232,15 @@ export function CoursePerformanceTable({
                       ? `${c.avgCompletionDays} days`
                       : "—"}
                   </td>
+                  <td className="px-5 py-3 text-slate-700">
+                    {formatDuration(c.avgTimeSeconds)}
+                  </td>
                 </tr>
               ))}
               {view.length === 0 && (
                 <tr>
                   <td
-                    colSpan={8}
+                    colSpan={9}
                     className="px-5 py-8 text-center text-slate-400"
                   >
                     No courses found.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useEffect, useCallback } from "react";
+import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import {
@@ -21,6 +21,8 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { QuestionBlockPlayer } from "@/components/question-block-player";
 import { RestrictedVideo } from "@/components/restricted-video";
+import { useActiveTime } from "@/lib/use-active-time";
+import { readTimeSpent } from "@/lib/time-tracking";
 import {
   isQuestionSatisfied,
   parseQuestionConfig,
@@ -67,6 +69,8 @@ type SavedProgress = {
   question_answers?: Record<string, QuestionAnswer>;
   /** ids of video blocks the learner has watched to the end */
   watched_videos?: string[];
+  /** active seconds spent on each lesson, keyed by lesson id */
+  time_spent?: Record<string, number>;
 };
 
 // Something on a page the learner must finish before moving on: a required
@@ -374,9 +378,59 @@ export function CourseViewer({
       completed_lessons: Array.from(completedLessons),
       question_answers: questionAnswers,
       watched_videos: Array.from(watchedVideos),
+      time_spent: { ...timeRef.current },
     }),
     [activeLessonId, pageIndex, completedLessons, questionAnswers, watchedVideos]
   );
+
+  // --- Time tracking ---
+  // Active seconds per lesson live in a ref (so ticking every second doesn't
+  // re-render the whole viewer) and are saved with the rest of the progress.
+  const timeRef = useRef<Record<string, number>>(readTimeSpent(saved));
+  const timeDirtyRef = useRef(false);
+  const activeLessonRef = useRef(activeLessonId);
+  const buildProgressRef = useRef(buildProgress);
+  useEffect(() => {
+    activeLessonRef.current = activeLessonId;
+    buildProgressRef.current = buildProgress;
+  });
+
+  useActiveTime(status !== "completed" && !!activeLessonId, () => {
+    const id = activeLessonRef.current;
+    if (!id) return;
+    timeRef.current = {
+      ...timeRef.current,
+      [id]: (timeRef.current[id] ?? 0) + 1,
+    };
+    timeDirtyRef.current = true;
+  });
+
+  // Flush accumulated time every 30s, when the tab is hidden, and on exit.
+  useEffect(() => {
+    if (status === "completed") return;
+    const flush = () => {
+      if (!timeDirtyRef.current) return;
+      timeDirtyRef.current = false;
+      supabase
+        .from("course_assignments")
+        .update({ progress: buildProgressRef.current() })
+        .eq("id", assignmentId)
+        .then(() => {});
+    };
+    const onHide = () => {
+      if (document.visibilityState === "hidden") flush();
+    };
+    const timer = setInterval(flush, 30_000);
+    document.addEventListener("visibilitychange", onHide);
+    window.addEventListener("pagehide", flush);
+    return () => {
+      clearInterval(timer);
+      document.removeEventListener("visibilitychange", onHide);
+      window.removeEventListener("pagehide", flush);
+      flush();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [status, assignmentId]);
 
   async function persistProgress() {
     await supabase
