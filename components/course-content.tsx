@@ -1,7 +1,8 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { BookOpen } from "lucide-react";
+import { BookOpen, ChevronDown, ChevronUp, GripVertical } from "lucide-react";
+import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { AddModuleForm } from "@/components/add-module-form";
 import { AddLessonForm } from "@/components/add-lesson-form";
@@ -36,6 +37,7 @@ export function CourseContent({
   initialLessons,
 }: Props) {
   const supabase = createClient();
+  const router = useRouter();
   const [modules, setModules] = useState<Module[]>(initialModules);
   const [lessons, setLessons] = useState<Lesson[]>(initialLessons);
 
@@ -66,6 +68,58 @@ export function CourseContent({
     setLessons((less ?? []) as Lesson[]);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [courseId]);
+
+  // --- Module reordering (drag the handle, or use the up/down arrows) ---
+  const [dragModuleId, setDragModuleId] = useState<string | null>(null);
+  const [reordering, setReordering] = useState(false);
+
+  async function persistModuleOrder(ordered: Module[]) {
+    setReordering(true);
+    const results = await Promise.all(
+      ordered.map((m, i) =>
+        supabase.from("modules").update({ position: i }).eq("id", m.id)
+      )
+    );
+    setReordering(false);
+    if (results.some((r) => r.error)) {
+      // Something failed: show the real order from the database again.
+      await reload();
+      return;
+    }
+    // Unpublish course on structural edit.
+    fetch("/api/admin/unpublish-on-edit", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ course_id: courseId }),
+    });
+    await reload();
+    router.refresh();
+  }
+
+  function moveModule(fromIndex: number, toIndex: number) {
+    if (
+      fromIndex === toIndex ||
+      fromIndex < 0 ||
+      toIndex < 0 ||
+      fromIndex >= modules.length ||
+      toIndex >= modules.length
+    ) {
+      return;
+    }
+    const list = [...modules];
+    const [moved] = list.splice(fromIndex, 1);
+    list.splice(toIndex, 0, moved);
+    const reordered = list.map((m, i) => ({ ...m, position: i }));
+    setModules(reordered);
+    persistModuleOrder(reordered);
+  }
+
+  function handleModuleDrop(targetId: string) {
+    const from = modules.findIndex((m) => m.id === dragModuleId);
+    const to = modules.findIndex((m) => m.id === targetId);
+    setDragModuleId(null);
+    moveModule(from, to);
+  }
 
   // Keep state in sync if the server re-renders with new props.
   useEffect(() => {
@@ -114,11 +168,59 @@ export function CourseContent({
         return (
           <div
             key={module.id}
-            className="overflow-hidden rounded-2xl border border-slate-200 bg-white"
+            onDragOver={(e) => {
+              if (dragModuleId) e.preventDefault();
+            }}
+            onDrop={(e) => {
+              if (!dragModuleId) return;
+              e.preventDefault();
+              handleModuleDrop(module.id);
+            }}
+            className={`overflow-hidden rounded-2xl border border-slate-200 bg-white transition ${
+              dragModuleId === module.id ? "opacity-40" : ""
+            } ${
+              dragModuleId && dragModuleId !== module.id
+                ? "border-dashed border-pd-red/50"
+                : ""
+            } ${reordering ? "pointer-events-none" : ""}`}
           >
             {/* Module header */}
             <div className="flex items-center justify-between p-6">
               <div className="flex items-center gap-4">
+                <div className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={() => moveModule(moduleIndex, moduleIndex - 1)}
+                    disabled={moduleIndex === 0}
+                    title="Move module up"
+                    aria-label={`Move ${module.title} up`}
+                    className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-25 disabled:hover:bg-transparent"
+                  >
+                    <ChevronUp size={16} />
+                  </button>
+                  <span
+                    draggable
+                    onDragStart={(e) => {
+                      e.dataTransfer.effectAllowed = "move";
+                      setDragModuleId(module.id);
+                    }}
+                    onDragEnd={() => setDragModuleId(null)}
+                    className="cursor-grab text-slate-300 hover:text-slate-500 active:cursor-grabbing"
+                    title="Drag to reorder module"
+                  >
+                    <GripVertical size={16} />
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => moveModule(moduleIndex, moduleIndex + 1)}
+                    disabled={moduleIndex === modules.length - 1}
+                    title="Move module down"
+                    aria-label={`Move ${module.title} down`}
+                    className="rounded p-0.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700 disabled:opacity-25 disabled:hover:bg-transparent"
+                  >
+                    <ChevronDown size={16} />
+                  </button>
+                </div>
                 <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-slate-100 text-sm font-bold text-slate-600">
                   {moduleIndex + 1}
                 </div>
