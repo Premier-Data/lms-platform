@@ -99,6 +99,17 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
+      {/* Instructions written by the admin */}
+      {config.description && (
+        <div className="border-b border-slate-200 bg-amber-50/60 px-4 py-3">
+          <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-700">
+            Instructions
+          </p>
+          <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
+            {config.description}
+          </p>
+        </div>
+      )}
       <div className="grid gap-0 lg:grid-cols-[1fr_300px]">
         {/* LEFT: video + vertical stat column */}
         <div className="min-w-0">

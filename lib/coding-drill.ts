@@ -27,6 +27,8 @@ export type DrillConfig = {
   startTime?: number;
   /** optional clip end (seconds). 0 or undefined = to the end */
   endTime?: number;
+  /** optional instructions shown to learners above the video */
+  description?: string;
 };
 
 // Default stat set (more can be added later by admins per drill).
@@ -138,7 +140,21 @@ export function parseDrillConfig(raw: unknown): DrillConfig {
     }
   }
 
-  return { videoUrl, tolerance, master, stats, statColors, startTime, endTime };
+  const description =
+    typeof obj.description === "string" && obj.description.trim()
+      ? obj.description
+      : undefined;
+
+  return {
+    videoUrl,
+    tolerance,
+    master,
+    stats,
+    statColors,
+    startTime,
+    endTime,
+    description,
+  };
 }
 
 /** Parse a "mm:ss" or "h:mm:ss" or plain-seconds string to seconds (or null). */

@@ -123,6 +123,25 @@ export function CodingDrillEditor({ value, onChange }: Props) {
         Coding Drill
       </div>
 
+      {/* Instructions shown to learners */}
+      <div>
+        <label className="mb-1.5 block text-xs font-medium text-slate-500">
+          Instructions{" "}
+          <span className="font-normal text-slate-400">
+            — shown to learners above the video
+          </span>
+        </label>
+        <textarea
+          value={config.description ?? ""}
+          onChange={(e) =>
+            commit({ ...config, description: e.target.value || undefined })
+          }
+          rows={4}
+          placeholder="e.g. Code every pass, goal and set piece for Team A only. Click the stat as the ball is played. You can try as many times as you like."
+          className="w-full resize-y rounded-xl border border-slate-300 bg-white px-3 py-2.5 text-sm text-slate-900 outline-none focus:border-pd-red"
+        />
+      </div>
+
       {/* Video */}
       <div>
         <label className="mb-1.5 block text-xs font-medium text-slate-500">
