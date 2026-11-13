@@ -1,0 +1,68 @@
+{
+  "language": {
+    "label": "Ngôn ngữ",
+    "english": "English",
+    "vietnamese": "Tiếng Việt"
+  },
+  "common": {
+    "loading": "Đang tải...",
+    "appTagline": "Đào tạo & Học tập"
+  },
+  "nav": {
+    "learning": "Học tập",
+    "administration": "Quản trị",
+    "dashboard": "Bảng điều khiển",
+    "myLearning": "Khóa học của tôi",
+    "messages": "Tin nhắn",
+    "courseBuilder": "Trình tạo khóa học",
+    "courses": "Khóa học",
+    "learningPaths": "Lộ trình học",
+    "gallery": "Thư viện",
+    "people": "Người dùng",
+    "reports": "Báo cáo",
+    "account": "Tài khoản",
+    "administrator": "Quản trị viên",
+    "storage": "Dung lượng lưu trữ",
+    "storageUsed": "Đã dùng {used} / {limit}",
+    "openMenu": "Mở menu",
+    "closeMenu": "Đóng menu"
+  },
+  "header": {
+    "welcomeBack": "Chào mừng trở lại"
+  },
+  "userMenu": {
+    "ariaLabel": "Menu tài khoản",
+    "account": "Tài khoản",
+    "myProfile": "Hồ sơ của tôi",
+    "accountSettings": "Cài đặt tài khoản",
+    "signOut": "Đăng xuất"
+  },
+  "notifications": {
+    "title": "Thông báo",
+    "markAllRead": "Đánh dấu đã đọc tất cả",
+    "empty": "Chưa có thông báo nào",
+    "justNow": "vừa xong",
+    "minutesAgo": "{n} phút trước",
+    "hoursAgo": "{n} giờ trước",
+    "daysAgo": "{n} ngày trước"
+  },
+  "auth": {
+    "subtitleSignUp": "Tạo tài khoản để bắt đầu khóa đào tạo của bạn.",
+    "subtitleSignIn": "Đăng nhập để tiếp tục khóa đào tạo của bạn.",
+    "checkEmail": "Kiểm tra email của bạn",
+    "confirmationSent": "Chúng tôi đã gửi liên kết xác nhận đến <b>{email}</b>. Nhấp vào liên kết trong email để kích hoạt tài khoản, sau đó đăng nhập.",
+    "backToSignIn": "Quay lại đăng nhập",
+    "fullName": "Họ và tên",
+    "fullNamePlaceholder": "Họ và tên của bạn",
+    "email": "Địa chỉ email",
+    "password": "Mật khẩu",
+    "forgotPassword": "Quên mật khẩu?",
+    "pleaseWait": "Vui lòng đợi...",
+    "createAccount": "Tạo tài khoản",
+    "signIn": "Đăng nhập",
+    "haveAccount": "Đã có tài khoản?",
+    "noAccount": "Chưa có tài khoản?",
+    "createOne": "Tạo tài khoản",
+    "genericError": "Đã xảy ra lỗi. Vui lòng thử lại."
+  }
+}

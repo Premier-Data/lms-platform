@@ -1,14 +1,17 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { AppSidebar } from "@/components/app-sidebar";
 import { NotificationBell } from "@/components/notification-bell";
 import { UserMenu } from "@/components/user-menu";
+import { LanguageToggle } from "@/components/language-toggle";
 
 export default async function AppLayout({
   children,
 }: {
   children: React.ReactNode;
 }) {
+  const t = await getTranslations("header");
   const supabase = await createClient();
 
   const {
@@ -48,7 +51,7 @@ export default async function AppLayout({
       <main className="min-w-0 flex-1">
         <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-slate-200/70 bg-white/80 px-4 backdrop-blur-md sm:px-8 lg:h-20">
           <div>
-            <p className="text-xs text-slate-500 sm:text-sm">Welcome back</p>
+            <p className="text-xs text-slate-500 sm:text-sm">{t("welcomeBack")}</p>
 
             <h2 className="text-sm font-semibold text-slate-900 sm:text-base">
               {profile?.full_name || user.email}
@@ -56,6 +59,7 @@ export default async function AppLayout({
           </div>
 
           <div className="flex items-center gap-3">
+            <LanguageToggle tone="light" />
             <NotificationBell />
 
             <UserMenu

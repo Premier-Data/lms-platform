@@ -1,5 +1,10 @@
 import { createServerClient } from "@supabase/ssr";
 import { NextResponse, type NextRequest } from "next/server";
+import {
+  LOCALE_COOKIE,
+  LOCALE_COOKIE_MAX_AGE,
+  isLocale,
+} from "@/i18n/config";
 
 // Long-lived cookie so sessions persist across app restarts (installed PWAs).
 const COOKIE_MAX_AGE = 60 * 60 * 24 * 400; // 400 days (browser max)
@@ -65,6 +70,27 @@ export async function proxy(request: NextRequest) {
     const url = request.nextUrl.clone();
     url.pathname = "/login";
     return NextResponse.redirect(url);
+  }
+
+  // Language: if this device has no language cookie yet but the signed-in
+  // user saved a preference on their account, restore it.
+  const savedLanguage = user?.user_metadata?.language;
+  if (
+    user &&
+    isLocale(savedLanguage) &&
+    !request.cookies.get(LOCALE_COOKIE)?.value
+  ) {
+    request.cookies.set(LOCALE_COOKIE, savedLanguage);
+    // Rebuild the response so this request sees the cookie, but carry over
+    // any auth cookies Supabase refreshed above.
+    const previous = supabaseResponse;
+    supabaseResponse = NextResponse.next({ request });
+    previous.cookies.getAll().forEach((c) => supabaseResponse.cookies.set(c));
+    supabaseResponse.cookies.set(LOCALE_COOKIE, savedLanguage, {
+      path: "/",
+      maxAge: LOCALE_COOKIE_MAX_AGE,
+      sameSite: "lax",
+    });
   }
 
   // IMPORTANT: return the supabaseResponse object as-is so the refreshed

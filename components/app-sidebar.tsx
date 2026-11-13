@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   LayoutDashboard,
   BookOpen,
@@ -25,17 +26,17 @@ type AppSidebarProps = {
 
 const learnerNavigation = [
   {
-    name: "Dashboard",
+    name: "dashboard",
     href: "/dashboard",
     icon: LayoutDashboard,
   },
   {
-    name: "My Learning",
+    name: "myLearning",
     href: "/courses",
     icon: BookOpen,
   },
   {
-    name: "Messages",
+    name: "messages",
     href: "/messages",
     icon: MessageSquare,
   },
@@ -43,38 +44,40 @@ const learnerNavigation = [
 
 const adminNavigation = [
   {
-    name: "Course Builder",
+    name: "courseBuilder",
     href: "/admin/courses",
     icon: BookOpen,
   },
   {
-    name: "Courses",
+    name: "courses",
     href: "/admin/allocations",
     icon: GraduationCap,
   },
   {
-    name: "Learning Paths",
+    name: "learningPaths",
     href: "/admin/learning-paths",
     icon: Route,
   },
   {
-    name: "Gallery",
+    name: "gallery",
     href: "/admin/gallery",
     icon: ImageIcon,
   },
   {
-    name: "People",
+    name: "people",
     href: "/admin/people",
     icon: Users,
   },
   {
-    name: "Reports",
+    name: "reports",
     href: "/admin/reports",
     icon: BarChart3,
   },
 ];
 
 export function AppSidebar({ isAdmin }: AppSidebarProps) {
+  const t = useTranslations("nav");
+  const tc = useTranslations("common");
   const pathname = usePathname();
   const [mobileOpen, setMobileOpen] = useState(false);
   const [unreadMessages, setUnreadMessages] = useState(0);
@@ -167,13 +170,13 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
           <h1 className="font-extrabold tracking-tight text-white">
             PREMIER<span className="text-pd-red">DATA</span>
           </h1>
-          <p className="text-xs text-slate-400">Training & Learning</p>
+          <p className="text-xs text-slate-400">{tc("appTagline")}</p>
         </div>
       </div>
 
       <nav className="flex-1 overflow-y-auto p-4">
         <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-          Learning
+          {t("learning")}
         </p>
 
         <div className="space-y-1">
@@ -194,7 +197,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
                 }`}
               >
                 <Icon size={19} />
-                <span className="flex-1">{item.name}</span>
+                <span className="flex-1">{t(item.name)}</span>
                 {showBadge && (
                   <span
                     className={`flex h-5 min-w-[20px] items-center justify-center rounded-full px-1 text-[11px] font-bold ${
@@ -214,7 +217,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
             <div className="my-7 border-t border-white/10" />
 
             <p className="mb-3 px-3 text-xs font-semibold uppercase tracking-wider text-slate-500">
-              Administration
+              {t("administration")}
             </p>
 
             <div className="space-y-1">
@@ -233,7 +236,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
                     }`}
                   >
                     <Icon size={19} />
-                    {item.name}
+                    {t(item.name)}
                   </Link>
                 );
               })}
@@ -251,7 +254,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
           >
             <div className="flex items-center gap-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
               <HardDrive size={14} />
-              Storage
+              {t("storage")}
             </div>
             <div className="mt-2 h-1.5 w-full overflow-hidden rounded-full bg-white/10">
               <div
@@ -271,8 +274,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
               />
             </div>
             <p className="mt-1.5 text-[11px] text-slate-400">
-              {formatBytes(storage.usedBytes)} of{" "}
-              {formatBytes(storage.limitBytes)} used
+              {t("storageUsed", { used: formatBytes(storage.usedBytes), limit: formatBytes(storage.limitBytes) })}
             </p>
           </Link>
         )}
@@ -282,13 +284,13 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
           className="flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-slate-300 transition hover:bg-white/10 hover:text-white"
         >
           <Settings size={19} />
-          Account
+          {t("account")}
         </Link>
 
         {isAdmin && (
           <div className="mt-3 flex items-center gap-2 rounded-lg bg-white/10 px-3 py-2 text-xs font-medium text-slate-200">
             <ShieldCheck size={15} />
-            Administrator
+            {t("administrator")}
           </div>
         )}
       </div>
@@ -316,7 +318,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
         <button
           onClick={() => setMobileOpen(true)}
           className="relative rounded-lg p-2 text-white transition hover:bg-white/10"
-          aria-label="Open menu"
+          aria-label={t("openMenu")}
         >
           <Menu size={24} />
           {unreadMessages > 0 && (
@@ -349,7 +351,7 @@ export function AppSidebar({ isAdmin }: AppSidebarProps) {
         <button
           onClick={() => setMobileOpen(false)}
           className="absolute right-3 top-3 rounded-lg p-2 text-white/70 transition hover:bg-white/10 hover:text-white"
-          aria-label="Close menu"
+          aria-label={t("closeMenu")}
         >
           <X size={22} />
         </button>

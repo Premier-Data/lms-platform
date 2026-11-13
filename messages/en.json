@@ -1,0 +1,68 @@
+{
+  "language": {
+    "label": "Language",
+    "english": "English",
+    "vietnamese": "Tiếng Việt"
+  },
+  "common": {
+    "loading": "Loading...",
+    "appTagline": "Training & Learning"
+  },
+  "nav": {
+    "learning": "Learning",
+    "administration": "Administration",
+    "dashboard": "Dashboard",
+    "myLearning": "My Learning",
+    "messages": "Messages",
+    "courseBuilder": "Course Builder",
+    "courses": "Courses",
+    "learningPaths": "Learning Paths",
+    "gallery": "Gallery",
+    "people": "People",
+    "reports": "Reports",
+    "account": "Account",
+    "administrator": "Administrator",
+    "storage": "Storage",
+    "storageUsed": "{used} of {limit} used",
+    "openMenu": "Open menu",
+    "closeMenu": "Close menu"
+  },
+  "header": {
+    "welcomeBack": "Welcome back"
+  },
+  "userMenu": {
+    "ariaLabel": "Account menu",
+    "account": "Account",
+    "myProfile": "My Profile",
+    "accountSettings": "Account Settings",
+    "signOut": "Sign out"
+  },
+  "notifications": {
+    "title": "Notifications",
+    "markAllRead": "Mark all read",
+    "empty": "No notifications yet",
+    "justNow": "just now",
+    "minutesAgo": "{n}m ago",
+    "hoursAgo": "{n}h ago",
+    "daysAgo": "{n}d ago"
+  },
+  "auth": {
+    "subtitleSignUp": "Create your account to start your training.",
+    "subtitleSignIn": "Sign in to continue your training.",
+    "checkEmail": "Check your email",
+    "confirmationSent": "We've sent a confirmation link to <b>{email}</b>. Click the link in that email to activate your account, then sign in.",
+    "backToSignIn": "Back to sign in",
+    "fullName": "Full name",
+    "fullNamePlaceholder": "Your full name",
+    "email": "Email address",
+    "password": "Password",
+    "forgotPassword": "Forgot password?",
+    "pleaseWait": "Please wait...",
+    "createAccount": "Create account",
+    "signIn": "Sign in",
+    "haveAccount": "Already have an account?",
+    "noAccount": "Don't have an account?",
+    "createOne": "Create one",
+    "genericError": "Something went wrong. Please try again."
+  }
+}

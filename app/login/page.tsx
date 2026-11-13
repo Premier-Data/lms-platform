@@ -3,9 +3,13 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageToggle } from "@/components/language-toggle";
 
 export default function LoginPage() {
+  const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const router = useRouter();
   const supabase = createClient();
 
@@ -68,9 +72,7 @@ export default function LoginPage() {
       }
     } catch (error) {
       setMessage(
-        error instanceof Error
-          ? error.message
-          : "Something went wrong. Please try again."
+        error instanceof Error ? error.message : t("genericError")
       );
     } finally {
       setLoading(false);
@@ -89,14 +91,15 @@ export default function LoginPage() {
             alt="Premier Data"
             className="h-16 w-16 animate-pulse rounded-2xl"
           />
-          <p className="text-sm text-slate-400">Loading...</p>
+          <p className="text-sm text-slate-400">{tc("loading")}</p>
         </div>
       </main>
     );
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-pd-navy-deep p-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-pd-navy-deep p-6">
+      <div className="absolute right-4 top-4"><LanguageToggle tone="dark" /></div>
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-pd-navy p-8 shadow-2xl shadow-black/40">
         {signupComplete ? (
           <div className="text-center">
@@ -117,16 +120,13 @@ export default function LoginPage() {
             </div>
 
             <h1 className="mt-5 text-2xl font-extrabold tracking-tight text-white">
-              Check your email
+              {t("checkEmail")}
             </h1>
 
             <div className="mx-auto mt-3 h-1 w-12 rounded-full bg-pd-red" />
 
             <p className="mt-4 text-sm text-slate-300">
-              We&apos;ve sent a confirmation link to{" "}
-              <span className="font-semibold text-white">{email}</span>.
-              Click the link in that email to activate your account, then sign
-              in.
+              {t.rich("confirmationSent", { email, b: (chunks) => <span className="font-semibold text-white">{chunks}</span> })}
             </p>
 
             <button
@@ -139,7 +139,7 @@ export default function LoginPage() {
               }}
               className="mt-6 w-full rounded-lg bg-pd-red px-4 py-3 font-semibold text-white transition hover:bg-pd-red-hover"
             >
-              Back to sign in
+              {t("backToSignIn")}
             </button>
           </div>
         ) : (
@@ -152,9 +152,7 @@ export default function LoginPage() {
           <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
 
           <p className="mt-4 text-sm text-slate-300">
-            {isSignUp
-              ? "Create your account to start your training."
-              : "Sign in to continue your training."}
+            {isSignUp ? t("subtitleSignUp") : t("subtitleSignIn")}
           </p>
         </div>
 
@@ -162,7 +160,7 @@ export default function LoginPage() {
           {isSignUp && (
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-200">
-                Full name
+                {t("fullName")}
               </label>
 
               <input
@@ -171,14 +169,14 @@ export default function LoginPage() {
                 onChange={(e) => setFullName(e.target.value)}
                 required
                 className="w-full rounded-lg border border-white/15 bg-pd-navy-surface px-4 py-3 text-white placeholder-slate-500 outline-none transition focus:border-pd-red"
-                placeholder="Your full name"
+                placeholder={t("fullNamePlaceholder")}
               />
             </div>
           )}
 
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-200">
-              Email address
+              {t("email")}
             </label>
 
             <input
@@ -194,7 +192,7 @@ export default function LoginPage() {
           <div>
             <div className="mb-2 flex items-center justify-between">
               <label className="block text-sm font-medium text-slate-200">
-                Password
+                {t("password")}
               </label>
 
               {!isSignUp && (
@@ -202,7 +200,7 @@ export default function LoginPage() {
                   href="/forgot-password"
                   className="text-sm font-medium text-pd-red hover:text-pd-red-hover"
                 >
-                  Forgot password?
+                  {t("forgotPassword")}
                 </Link>
               )}
             </div>
@@ -229,18 +227,12 @@ export default function LoginPage() {
             disabled={loading}
             className="w-full rounded-lg bg-pd-red px-4 py-3 font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-50"
           >
-            {loading
-              ? "Please wait..."
-              : isSignUp
-                ? "Create account"
-                : "Sign in"}
+            {loading ? t("pleaseWait") : isSignUp ? t("createAccount") : t("signIn")}
           </button>
         </form>
 
         <div className="mt-6 text-center text-sm text-slate-400">
-          {isSignUp
-            ? "Already have an account?"
-            : "Don't have an account?"}
+          {isSignUp ? t("haveAccount") : t("noAccount")}
 
           <button
             type="button"
@@ -250,7 +242,7 @@ export default function LoginPage() {
             }}
             className="ml-2 font-semibold text-pd-red hover:text-pd-red-hover"
           >
-            {isSignUp ? "Sign in" : "Create one"}
+            {isSignUp ? t("signIn") : t("createOne")}
           </button>
         </div>
         </>
