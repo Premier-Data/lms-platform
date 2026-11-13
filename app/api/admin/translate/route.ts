@@ -119,7 +119,7 @@ export async function POST(request: Request) {
   }
   if (!translationConfigured()) {
     return NextResponse.json(
-      { error: "Automatic translation isn't set up yet (ANTHROPIC_API_KEY is missing)." },
+      { error: "Automatic translation isn't set up yet (no API key is set)." },
       { status: 503 }
     );
   }

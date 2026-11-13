@@ -95,7 +95,7 @@ export default function TranslationsPage() {
           <AlertTriangle size={18} className="mt-0.5 shrink-0" />
           <p>
             Automatic translation isn&apos;t set up yet. Add{" "}
-            <code className="rounded bg-amber-100 px-1">ANTHROPIC_API_KEY</code>{" "}
+            <code className="rounded bg-amber-100 px-1">GEMINI_API_KEY</code>{" "}
             to the environment (see the notes below). You can still write
             Vietnamese by hand from each course&apos;s Review page.
           </p>

@@ -1,17 +1,19 @@
 import type { TItem } from "@/lib/translations";
 
-// Machine translation via the Anthropic Messages API. Set ANTHROPIC_API_KEY
-// (and optionally TRANSLATION_MODEL) in the environment.
+// Machine translation. Uses Google Gemini if GEMINI_API_KEY is set, otherwise
+// Anthropic if ANTHROPIC_API_KEY is set. TRANSLATION_MODEL optionally
+// overrides the default model of whichever provider is used.
 
 const API_URL = "https://api.anthropic.com/v1/messages";
 const DEFAULT_MODEL = "claude-sonnet-4-5";
+const GEMINI_DEFAULT_MODEL = "gemini-2.5-flash";
 
 export const LOCALE_NAMES: Record<string, string> = {
   vi: "Vietnamese",
 };
 
 export function translationConfigured(): boolean {
-  return !!process.env.ANTHROPIC_API_KEY;
+  return !!(process.env.GEMINI_API_KEY || process.env.ANTHROPIC_API_KEY);
 }
 
 const SYSTEM = (language: string) => `You translate e-learning content for Premier Data, a sports data company whose staff learn to code and verify live sports event data (mainly soccer: passes, tackles, shots, possession, xG, event tagging, QA of data accuracy).
@@ -27,9 +29,52 @@ Reply with ONLY a JSON array of strings, the same length and order as the input 
 
 type Piece = { text: string; html: boolean };
 
+function parseResult(raw: string, expected: number): string[] {
+  // Tolerate accidental code fences.
+  const out = raw.trim().replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
+  const parsed = JSON.parse(out);
+  if (!Array.isArray(parsed) || parsed.length !== expected || parsed.some((s) => typeof s !== "string")) {
+    throw new Error("Translation service returned an unexpected response.");
+  }
+  return parsed as string[];
+}
+
+async function callGemini(pieces: Piece[], language: string, key: string): Promise<string[]> {
+  const model = process.env.TRANSLATION_MODEL || GEMINI_DEFAULT_MODEL;
+  const res = await fetch(
+    `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json", "x-goog-api-key": key },
+      body: JSON.stringify({
+        systemInstruction: { parts: [{ text: SYSTEM(language) }] },
+        contents: [
+          {
+            role: "user",
+            parts: [{ text: JSON.stringify(pieces.map((p) => ({ html: p.html, text: p.text }))) }],
+          },
+        ],
+        generationConfig: { temperature: 0, responseMimeType: "application/json" },
+      }),
+    }
+  );
+  if (!res.ok) {
+    const body = await res.text().catch(() => "");
+    throw new Error(`Translation service error ${res.status}: ${body.slice(0, 200)}`);
+  }
+  const data = await res.json();
+  const text: string = (data?.candidates?.[0]?.content?.parts ?? [])
+    .map((p: { text?: string }) => p.text ?? "")
+    .join("");
+  return parseResult(text, pieces.length);
+}
+
 async function callModel(pieces: Piece[], language: string): Promise<string[]> {
+  const gemini = process.env.GEMINI_API_KEY;
+  if (gemini) return callGemini(pieces, language, gemini);
+
   const key = process.env.ANTHROPIC_API_KEY;
-  if (!key) throw new Error("ANTHROPIC_API_KEY is not set.");
+  if (!key) throw new Error("No translation API key is set (GEMINI_API_KEY or ANTHROPIC_API_KEY).");
 
   const res = await fetch(API_URL, {
     method: "POST",
@@ -57,18 +102,11 @@ async function callModel(pieces: Piece[], language: string): Promise<string[]> {
     throw new Error(`Translation service error ${res.status}: ${body.slice(0, 200)}`);
   }
   const data = await res.json();
-  let out: string = (data?.content ?? [])
+  const out: string = (data?.content ?? [])
     .filter((c: { type: string }) => c.type === "text")
     .map((c: { text: string }) => c.text)
-    .join("")
-    .trim();
-  // Tolerate accidental code fences.
-  out = out.replace(/^```(?:json)?\s*/i, "").replace(/\s*```$/, "");
-  const parsed = JSON.parse(out);
-  if (!Array.isArray(parsed) || parsed.length !== pieces.length || parsed.some((s) => typeof s !== "string")) {
-    throw new Error("Translation service returned an unexpected response.");
-  }
-  return parsed as string[];
+    .join("");
+  return parseResult(out, pieces.length);
 }
 
 /** Translate items in size-limited batches. Order of results matches input. */

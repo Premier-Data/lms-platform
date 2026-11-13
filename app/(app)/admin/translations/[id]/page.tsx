@@ -180,7 +180,7 @@ export default function ReviewTranslationsPage({
 
       {!configured && (
         <p className="mb-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
-          Automatic translation isn&apos;t set up (ANTHROPIC_API_KEY missing).
+          Automatic translation isn&apos;t set up (no API key set).
           You can still type translations by hand.
         </p>
       )}
