@@ -1,4 +1,5 @@
-import { getTranslations } from "next-intl/server";
+import { getTranslations, getLocale } from "next-intl/server";
+import { fetchCourseTitleMap, tx } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/server";
 import {
   BookOpen,
@@ -24,6 +25,7 @@ function extractCategoryNames(course: unknown): string[] {
 
 export default async function DashboardPage() {
   const t = await getTranslations("dashboard");
+  const locale = await getLocale();
   const supabase = await createClient();
 
   const {
@@ -47,6 +49,14 @@ export default async function DashboardPage() {
       )
     `)
     .eq("user_id", user?.id ?? "");
+
+  const courseIds = (assignments ?? [])
+    .map((a) => {
+      const c = Array.isArray(a.courses) ? a.courses[0] : a.courses;
+      return c?.id as string | undefined;
+    })
+    .filter((x): x is string => !!x);
+  const tmap = await fetchCourseTitleMap(supabase, courseIds, locale);
 
   const totalCourses = assignments?.length ?? 0;
 
@@ -188,11 +198,21 @@ export default async function DashboardPage() {
                     )}
 
                     <h3 className="font-semibold text-slate-900">
-                      {course?.title}
+                      {course
+                        ? tx(tmap, "course", course.id, "title", course.title)
+                        : ""}
                     </h3>
 
                     <p className="mt-2 line-clamp-2 text-sm text-slate-500">
-                      {course?.description}
+                      {course
+                        ? tx(
+                            tmap,
+                            "course",
+                            course.id,
+                            "description",
+                            course.description
+                          )
+                        : ""}
                     </p>
                   </div>
                 </a>

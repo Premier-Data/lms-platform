@@ -25,7 +25,8 @@
     "storage": "Dung lượng lưu trữ",
     "storageUsed": "Đã dùng {used} / {limit}",
     "openMenu": "Mở menu",
-    "closeMenu": "Đóng menu"
+    "closeMenu": "Đóng menu",
+    "translations": "Bản dịch"
   },
   "header": {
     "welcomeBack": "Chào mừng trở lại"

@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
+import { fetchCourseMap, tx } from "@/lib/translations";
 import {
   CheckCircle2,
   XCircle,
@@ -52,6 +53,8 @@ type QuizConfig = {
 };
 
 type QuizTakerProps = {
+  /** course this quiz belongs to (used to look up translations) */
+  courseId?: string;
   lessonId: string;
   lessonTitle: string;
   onComplete: (passed: boolean) => void;
@@ -80,7 +83,9 @@ function shuffle<T>(items: T[]): T[] {
 function isTrueFalse(options: Option[]): boolean {
   return (
     options.length === 2 &&
-    options.every((o) => /^(true|false)$/i.test(o.content.trim()))
+    options.every((o) =>
+      /^(true|false|\u0111\u00fang|sai)$/i.test(o.content.trim())
+    )
   );
 }
 
@@ -100,11 +105,13 @@ function buildAttempt(qs: Question[]): Question[] {
 // --- Component ---
 
 export function QuizTaker({
+  courseId,
   lessonId,
   lessonTitle,
   onComplete,
 }: QuizTakerProps) {
   const t = useTranslations("quiz");
+  const locale = useLocale();
   const supabase = createClient();
 
   const [phase, setPhase] = useState<Phase>("loading");
@@ -158,13 +165,34 @@ export function QuizTaker({
           .eq("lesson_id", lessonId),
       ]);
 
-      if (configRes.data) setConfig(configRes.data);
+      // Vietnamese wording where a translation exists (grading uses ids, so
+      // it is unaffected).
+      const tmap = courseId
+        ? await fetchCourseMap(supabase, courseId, locale)
+        : null;
+
+      if (configRes.data) {
+        const c = configRes.data;
+        setConfig({
+          ...c,
+          intro_title: tx(tmap, "quiz_config", c.id, "intro_title", c.intro_title),
+          intro_message: tx(tmap, "quiz_config", c.id, "intro_message", c.intro_message),
+          end_title: tx(tmap, "quiz_config", c.id, "end_title", c.end_title),
+          end_message: tx(tmap, "quiz_config", c.id, "end_message", c.end_message),
+        });
+      }
 
       const qs = (questionsRes.data ?? []).map((q) => ({
         ...q,
-        quiz_options: (q.quiz_options ?? []).sort(
-          (a: Option, b: Option) => a.position - b.position
-        ),
+        question_text: tx(tmap, "quiz_question", q.id, "question_text", q.question_text),
+        explanation: tx(tmap, "quiz_question", q.id, "explanation", q.explanation),
+        quiz_options: (q.quiz_options ?? [])
+          .map((o: Option) =>
+            q.question_type === "short_answer"
+              ? o
+              : { ...o, content: tx(tmap, "quiz_option", o.id, "content", o.content) }
+          )
+          .sort((a: Option, b: Option) => a.position - b.position),
       }));
       setQuestions(qs);
 
@@ -186,7 +214,7 @@ export function QuizTaker({
 
     load();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [lessonId]);
+  }, [lessonId, locale]);
 
   // The shuffled question set for the current attempt (re-shuffled on every
   // start / retry, always).

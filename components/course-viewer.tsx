@@ -679,6 +679,7 @@ export function CourseViewer({
           ) : activeLesson.lesson_type === "quiz" ? (
             <QuizTaker
               key={activeLesson.id}
+              courseId={course.id}
               lessonId={activeLesson.id}
               lessonTitle={activeLesson.title}
               onComplete={(passed) => {

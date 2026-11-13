@@ -5,6 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
+  Languages,
   LayoutDashboard,
   BookOpen,
   GraduationCap,
@@ -72,6 +73,11 @@ const adminNavigation = [
     name: "reports",
     href: "/admin/reports",
     icon: BarChart3,
+  },
+  {
+    name: "translations",
+    href: "/admin/translations",
+    icon: Languages,
   },
 ];
 

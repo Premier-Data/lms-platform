@@ -25,7 +25,8 @@
     "storage": "Storage",
     "storageUsed": "{used} of {limit} used",
     "openMenu": "Open menu",
-    "closeMenu": "Close menu"
+    "closeMenu": "Close menu",
+    "translations": "Translations"
   },
   "header": {
     "welcomeBack": "Welcome back"

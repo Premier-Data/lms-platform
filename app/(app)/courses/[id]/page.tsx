@@ -1,7 +1,14 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
 import { ArrowLeft } from "lucide-react";
+import { getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
+import {
+  fetchCourseMap,
+  tx,
+  translateBlockContent,
+  translateLessonContent,
+} from "@/lib/translations";
 import { CourseViewer } from "@/components/course-viewer";
 
 type CourseViewerPageProps = {
@@ -211,16 +218,49 @@ export default async function CourseViewerPage({
       ? ((assignment as { progress?: Record<string, unknown> }).progress ?? {})
       : {};
 
+  // Swap in Vietnamese text where a translation exists (English otherwise).
+  const locale = await getLocale();
+  const tmap = await fetchCourseMap(supabase, id, locale);
+
+  const tCourse = {
+    ...course,
+    title: tx(tmap, "course", course.id, "title", course.title) as string,
+    description: tx(
+      tmap,
+      "course",
+      course.id,
+      "description",
+      course.description
+    ) as string | null,
+  };
+  const tModules = (modules ?? []).map((m) => ({
+    ...m,
+    title: tx(tmap, "module", m.id, "title", m.title) as string,
+  }));
+  const tLessons = (lessons ?? []).map((l) => ({
+    ...l,
+    title: tx(tmap, "lesson", l.id, "title", l.title) as string,
+    content: translateLessonContent(l, tmap) as string | null,
+  }));
+  const tPages = (pages ?? []).map((p) => ({
+    ...p,
+    title: tx(tmap, "page", p.id, "title", p.title) as string,
+  }));
+  const tBlocks = (blocks ?? []).map((b) => ({
+    ...b,
+    content: translateBlockContent(b, tmap),
+  }));
+
   return (
     <CourseViewer
-      course={course}
+      course={tCourse}
       assignmentId={assignment.id}
       assignmentStatus={assignment.status ?? "not_started"}
       savedProgress={progress}
-      modules={modules ?? []}
-      lessons={lessons ?? []}
-      pages={pages ?? []}
-      blocks={blocks ?? []}
+      modules={tModules}
+      lessons={tLessons}
+      pages={tPages}
+      blocks={tBlocks}
       gatedQuizIds={gatedQuizIds}
       passedQuizIds={passedQuizIds}
     />

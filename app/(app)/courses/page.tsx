@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { getTranslations, getLocale } from "next-intl/server";
+import { fetchCourseTitleMap, tx } from "@/lib/translations";
 import { createClient } from "@/lib/supabase/server";
 import { BookOpen, Calendar, Lock, CheckCircle2, Route } from "lucide-react";
 
@@ -124,6 +125,25 @@ export default async function CoursesPage() {
 
   const list = (assignments ?? []) as Assignment[];
 
+  // Vietnamese course titles/descriptions where available.
+  const tmap = await fetchCourseTitleMap(
+    supabase,
+    [
+      ...new Set([
+        ...list.map((a) => a.course_id),
+        ...(pathCourseIds as string[]),
+      ]),
+    ],
+    locale
+  );
+  const trCourse = (c: CourseInfo): CourseInfo => ({
+    ...c,
+    title: tx(tmap, "course", c.id, "title", c.title) as string,
+    description: tx(tmap, "course", c.id, "description", c.description) as
+      | string
+      | null,
+  });
+
   // Build a map of course_id → assignment for quick lookup
   const assignmentByCourse = new Map<string, Assignment>();
   for (const a of list) {
@@ -203,13 +223,14 @@ export default async function CoursesPage() {
                     const assignment = assignmentByCourse.get(pc.course_id);
                     // Prefer full course details (available for all path
                     // courses); fall back to the assignment's joined course.
-                    const course =
+                    const rawCourse =
                       courseDetailsMap.get(pc.course_id) ??
                       (assignment
                         ? Array.isArray(assignment.courses)
                           ? assignment.courses[0]
                           : assignment.courses
                         : null);
+                    const course = rawCourse ? trCourse(rawCourse) : null;
 
                     const status = assignment?.status ?? "not_started";
 
@@ -339,11 +360,12 @@ export default async function CoursesPage() {
 
           <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
             {standaloneCourses.map((assignment) => {
-              const course = Array.isArray(assignment.courses)
+              const rawCourse = Array.isArray(assignment.courses)
                 ? assignment.courses[0]
                 : assignment.courses;
 
-              if (!course) return null;
+              if (!rawCourse) return null;
+              const course = trCourse(rawCourse);
 
               const status = assignment.status ?? "not_started";
 
