@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { getTranslations, getLocale } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import { BookOpen, Calendar, Lock, CheckCircle2, Route } from "lucide-react";
 
@@ -38,13 +39,14 @@ const statusStyles: Record<string, string> = {
   not_started: "bg-slate-100 text-slate-600",
 };
 
-const statusLabels: Record<string, string> = {
-  completed: "Completed",
-  in_progress: "In Progress",
-  not_started: "Not Started",
-};
-
 export default async function CoursesPage() {
+  const t = await getTranslations("courses");
+  const locale = await getLocale();
+  const statusLabels: Record<string, string> = {
+    completed: t("statusCompleted"),
+    in_progress: t("statusInProgress"),
+    not_started: t("statusNotStarted"),
+  };
   const supabase = await createClient();
 
   const {
@@ -142,11 +144,11 @@ export default async function CoursesPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          My Courses
+          {t("title")}
         </h1>
         <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
         <p className="mt-4 text-slate-500">
-          Your learning paths and assigned courses.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -174,8 +176,10 @@ export default async function CoursesPage() {
                       {path.title}
                     </h2>
                     <p className="text-sm text-slate-500">
-                      {completedCount} of {orderedCourses.length} courses
-                      complete
+                      {t("pathProgress", {
+                        done: completedCount,
+                        total: orderedCourses.length,
+                      })}
                     </p>
                   </div>
                 </div>
@@ -232,7 +236,7 @@ export default async function CoursesPage() {
                             <div className="p-5">
                               <div className="flex items-center gap-2">
                                 <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-500">
-                                  Locked
+                                  {t("locked")}
                                 </span>
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-slate-200 text-[10px] font-bold text-slate-600">
                                   {idx + 1}
@@ -242,7 +246,7 @@ export default async function CoursesPage() {
                                 {course.title}
                               </h2>
                               <p className="mt-1 text-xs text-slate-400">
-                                Complete the previous course to unlock
+                                {t("lockedHint")}
                               </p>
                             </div>
                           </div>
@@ -274,7 +278,7 @@ export default async function CoursesPage() {
                                     statusStyles.not_started
                                   }`}
                                 >
-                                  {statusLabels[status] ?? "Not Started"}
+                                  {statusLabels[status] ?? t("statusNotStarted")}
                                 </span>
                                 <span className="flex h-5 w-5 items-center justify-center rounded-full bg-pd-red text-[10px] font-bold text-white">
                                   {idx + 1}
@@ -299,10 +303,11 @@ export default async function CoursesPage() {
                               {assignment?.due_date && (
                                 <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
                                   <Calendar size={14} />
-                                  Due{" "}
-                                  {new Date(
-                                    assignment.due_date
-                                  ).toLocaleDateString()}
+                                  {t("due", {
+                                    date: new Date(
+                                      assignment.due_date
+                                    ).toLocaleDateString(locale),
+                                  })}
                                 </div>
                               )}
                             </div>
@@ -324,10 +329,10 @@ export default async function CoursesPage() {
           {(paths ?? []).length > 0 && (
             <div className="mb-5">
               <h2 className="text-lg font-semibold text-slate-900">
-                Additional Courses
+                {t("additional")}
               </h2>
               <p className="mt-1 text-sm text-slate-500">
-                Individually assigned courses.
+                {t("additionalHint")}
               </p>
             </div>
           )}
@@ -367,7 +372,7 @@ export default async function CoursesPage() {
                           statusStyles[status] ?? statusStyles.not_started
                         }`}
                       >
-                        {statusLabels[status] ?? "Not Started"}
+                        {statusLabels[status] ?? t("statusNotStarted")}
                       </span>
                       {extractCategoryNames(course).map((name) => (
                         <span
@@ -389,10 +394,11 @@ export default async function CoursesPage() {
                     {assignment.due_date && (
                       <div className="mt-3 flex items-center gap-1.5 text-xs text-slate-400">
                         <Calendar size={14} />
-                        Due{" "}
-                        {new Date(
-                          assignment.due_date
-                        ).toLocaleDateString()}
+                        {t("due", {
+                          date: new Date(
+                            assignment.due_date
+                          ).toLocaleDateString(locale),
+                        })}
                       </div>
                     )}
                   </div>
@@ -410,10 +416,10 @@ export default async function CoursesPage() {
             <BookOpen size={28} className="text-pd-red" />
           </div>
           <h2 className="mt-4 font-semibold text-slate-900">
-            No courses assigned yet
+            {t("emptyTitle")}
           </h2>
           <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
-            When courses are allocated to you, they will appear here.
+            {t("emptyHint")}
           </p>
         </div>
       )}

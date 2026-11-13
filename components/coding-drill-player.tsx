@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useRef, useState } from "react";
+import { useTranslations } from "next-intl";
 import {
   Loader2,
   Trash2,
@@ -28,6 +29,7 @@ type Props = {
 };
 
 export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
+  const td = useTranslations("drill");
   const config = useMemo(() => parseDrillConfig(content), [content]);
   const videoRef = useRef<DrillVideoHandle>(null);
 
@@ -40,7 +42,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   if (!config.videoUrl) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50 p-6 text-center text-sm text-slate-400">
-        This coding drill has no video configured yet.
+        {td("noVideo")}
       </div>
     );
   }
@@ -103,7 +105,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
       {config.description && (
         <div className="border-b border-slate-200 bg-amber-50/60 px-4 py-3">
           <p className="mb-1 text-xs font-semibold uppercase tracking-wider text-amber-700">
-            Instructions
+            {td("instructions")}
           </p>
           <p className="whitespace-pre-wrap text-sm leading-6 text-slate-700">
             {config.description}
@@ -145,9 +147,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
           {/* Instruction */}
           <div className="border-t border-slate-200 px-3 py-2">
             <p className="text-xs font-medium text-slate-500">
-              {result
-                ? "Submitted — review your result, then retry to try again."
-                : "Click a stat the moment it happens in the video."}
+              {result ? td("submittedHint") : td("clickHint")}
             </p>
           </div>
         </div>
@@ -156,7 +156,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
         <div className="flex flex-col border-t border-slate-200 lg:border-l lg:border-t-0">
           <div className="flex items-center justify-between border-b border-slate-200 bg-slate-50 px-4 py-2.5">
             <span className="text-xs font-semibold uppercase tracking-wider text-slate-500">
-              {showSummary ? "Summary" : "Your timeline"}
+              {showSummary ? td("summary") : td("yourTimeline")}
             </span>
             <div className="flex items-center gap-2">
               <button
@@ -167,10 +167,10 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                     ? "bg-pd-red text-white"
                     : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
                 }`}
-                title="Show total coded per stat"
+                title={td("summaryTitle")}
               >
                 <BarChart3 size={13} />
-                {showSummary ? "Timeline" : "Summary"}
+                {showSummary ? td("timeline") : td("summary")}
               </button>
               <span className="rounded-full bg-slate-200 px-2 py-0.5 text-xs font-semibold text-slate-600">
                 {events.length}
@@ -184,14 +184,14 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                   colors={config.statColors}
                 stats={config.stats}
                 events={events}
-                countLabel="You"
+                countLabel={td("you")}
                 // Only reveal the master counts once the attempt is graded.
                 compareEvents={result ? config.master : undefined}
-                compareLabel="Master"
+                compareLabel={td("master")}
               />
               {!result && (
                 <p className="mt-2 px-1 text-[11px] text-slate-400">
-                  Master counts are shown after you submit.
+                  {td("masterAfterSubmit")}
                 </p>
               )}
             </div>
@@ -204,7 +204,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
           >
             {events.length === 0 ? (
               <p className="px-2 py-8 text-center text-xs text-slate-400">
-                No events logged yet.
+                {td("noEvents")}
               </p>
             ) : (
               <div className="space-y-1">
@@ -238,7 +238,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                       {result ? (
                         isExtra ? (
                           <span className="ml-auto text-[10px] font-semibold uppercase text-red-500">
-                            extra
+                            {td("extraTag")}
                           </span>
                         ) : (
                           <CheckCircle2
@@ -272,7 +272,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                 className="flex w-full items-center justify-center gap-2 rounded-xl bg-pd-red px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:opacity-50"
               >
                 {submitting && <Loader2 size={16} className="animate-spin" />}
-                Submit &amp; grade
+                {td("submitGrade")}
               </button>
             ) : (
               <button
@@ -281,7 +281,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                 className="flex w-full items-center justify-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-semibold text-slate-700 transition hover:bg-slate-50"
               >
                 <RotateCcw size={15} />
-                Try again
+                {td("tryAgain")}
               </button>
             )}
           </div>
@@ -304,19 +304,23 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
               >
                 {acc}%
               </span>
-              <span className="text-sm text-slate-500">accuracy</span>
+              <span className="text-sm text-slate-500">
+                {td("accuracy")}
+              </span>
             </div>
             <div className="flex gap-3 text-sm">
               <span className="text-emerald-600">
-                {result.exact} correct
+                {td("correct", { n: result.exact })}
               </span>
-              <span className="text-red-500">{result.missed} missed</span>
               <span className="text-red-500">
-                {result.extra} extra (incorrect)
+                {td("missed", { n: result.missed })}
+              </span>
+              <span className="text-red-500">
+                {td("extraIncorrect", { n: result.extra })}
               </span>
             </div>
             <span className="ml-auto text-xs text-slate-400">
-              Attempt {attemptCount}
+              {td("attempt", { n: attemptCount })}
             </span>
           </div>
 
@@ -324,7 +328,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
           {result.detail.some((d) => !d.matched) && (
             <div className="mt-3">
               <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-slate-500">
-                Missed events
+                {td("missedEvents")}
               </p>
               <div className="flex flex-wrap gap-1.5">
                 {result.detail
@@ -334,7 +338,7 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
                       type="button"
                       key={i}
                       onClick={() => seekTo(d.t)}
-                      title="Jump to this moment in the video"
+                      title={td("jumpTo")}
                       className="inline-flex items-center gap-1.5 rounded-lg bg-white px-2 py-1 text-xs text-slate-600 ring-1 ring-slate-200 hover:ring-pd-red"
                     >
                       <X size={11} className="text-red-500" />

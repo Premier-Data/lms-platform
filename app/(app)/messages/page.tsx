@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useRef, useState, useCallback } from "react";
+import { useTranslations, useLocale } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import {
   Loader2,
@@ -51,6 +52,8 @@ type UserRow = {
 };
 
 export default function MessagesPage() {
+  const t = useTranslations("messages");
+  const locale = useLocale();
   const supabase = createClient();
 
   const [conversations, setConversations] = useState<Conversation[]>([]);
@@ -309,7 +312,7 @@ export default function MessagesPage() {
 
   function timeLabel(dateStr: string): string {
     const d = new Date(dateStr);
-    return d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
+    return d.toLocaleTimeString(locale, { hour: "2-digit", minute: "2-digit" });
   }
 
   if (loading) {
@@ -324,7 +327,7 @@ export default function MessagesPage() {
     <div className="mx-auto max-w-6xl">
       <div className="mb-6">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Messages
+          {t("title")}
         </h1>
         <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
       </div>
@@ -337,7 +340,9 @@ export default function MessagesPage() {
           }`}
         >
           <div className="flex items-center justify-between border-b border-slate-200 p-4">
-            <h2 className="text-sm font-semibold text-slate-900">Chats</h2>
+            <h2 className="text-sm font-semibold text-slate-900">
+              {t("chats")}
+            </h2>
             <div className="flex gap-1">
               <button
                 onClick={() => {
@@ -345,7 +350,7 @@ export default function MessagesPage() {
                   setUserSearch("");
                 }}
                 className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                title="New message"
+                title={t("newMessage")}
               >
                 <Plus size={18} />
               </button>
@@ -358,7 +363,7 @@ export default function MessagesPage() {
                     setGroupMembers(new Set());
                   }}
                   className="rounded-lg p-2 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800"
-                  title="New group"
+                  title={t("newGroup")}
                 >
                   <Users size={18} />
                 </button>
@@ -369,9 +374,9 @@ export default function MessagesPage() {
           <div className="flex-1 overflow-y-auto">
             {conversations.length === 0 ? (
               <div className="px-4 py-10 text-center text-sm text-slate-400">
-                No conversations yet.
+                {t("noConversations")}
                 <br />
-                Start one with the + button.
+                {t("startOne")}
               </div>
             ) : (
               conversations.map((conv) => (
@@ -412,7 +417,7 @@ export default function MessagesPage() {
                           (conv.lastMessage.attachment_name
                             ? `📎 ${conv.lastMessage.attachment_name}`
                             : "")
-                        : "No messages yet"}
+                        : t("noMessagesYet")}
                     </p>
                   </div>
                 </button>
@@ -428,7 +433,7 @@ export default function MessagesPage() {
           {!activeConversation ? (
             <div className="flex flex-1 flex-col items-center justify-center text-slate-400">
               <MessageSquare size={40} />
-              <p className="mt-3 text-sm">Select a conversation</p>
+              <p className="mt-3 text-sm">{t("selectConversation")}</p>
             </div>
           ) : (
             <>
@@ -459,7 +464,7 @@ export default function MessagesPage() {
                   </p>
                   {activeConversation.type === "group" && (
                     <p className="text-xs text-slate-500">
-                      {activeConversation.members.length} members
+                      {t("members", { n: activeConversation.members.length })}
                     </p>
                   )}
                 </div>
@@ -473,7 +478,7 @@ export default function MessagesPage() {
                   </div>
                 ) : messages.length === 0 ? (
                   <p className="py-8 text-center text-sm text-slate-400">
-                    No messages yet. Say hello!
+                    {t("sayHello")}
                   </p>
                 ) : (
                   messages.map((m) => (
@@ -522,7 +527,7 @@ export default function MessagesPage() {
                                 }`}
                               >
                                 <FileText size={16} />
-                                {m.attachment_name || "Download file"}
+                                {m.attachment_name || t("downloadFile")}
                               </a>
                             )}
                           </div>
@@ -560,7 +565,7 @@ export default function MessagesPage() {
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading}
                     className="rounded-xl p-2.5 text-slate-500 transition hover:bg-slate-100 hover:text-slate-800 disabled:opacity-50"
-                    title="Attach file"
+                    title={t("attachFile")}
                   >
                     {uploading ? (
                       <Loader2 size={20} className="animate-spin" />
@@ -578,7 +583,7 @@ export default function MessagesPage() {
                       }
                     }}
                     rows={1}
-                    placeholder="Type a message..."
+                    placeholder={t("typeMessage")}
                     className="flex-1 resize-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-pd-red"
                   />
                   <button
@@ -601,7 +606,7 @@ export default function MessagesPage() {
           <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 p-5">
               <h2 className="text-lg font-semibold text-slate-900">
-                {isAdmin ? "New message" : "Ask an admin"}
+                {isAdmin ? t("newMessage") : t("askAdmin")}
               </h2>
               <button
                 onClick={() => setShowNewDirect(false)}
@@ -619,7 +624,7 @@ export default function MessagesPage() {
                 <input
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder={isAdmin ? "Search users..." : "Search admins..."}
+                  placeholder={isAdmin ? t("searchUsers") : t("searchAdmins")}
                   className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-pd-red"
                 />
               </div>
@@ -640,7 +645,7 @@ export default function MessagesPage() {
                       {u.full_name || u.email}
                     </p>
                     <p className="truncate text-xs text-slate-500">
-                      {u.role === "learner" ? "Learner" : "Admin"}
+                      {u.role === "learner" ? t("roleLearner") : t("roleAdmin")}
                     </p>
                   </div>
                 </button>
@@ -656,7 +661,7 @@ export default function MessagesPage() {
           <div className="flex max-h-[80vh] w-full max-w-md flex-col rounded-2xl bg-white shadow-xl">
             <div className="flex items-center justify-between border-b border-slate-200 p-5">
               <h2 className="text-lg font-semibold text-slate-900">
-                New group
+                {t("newGroup")}
               </h2>
               <button
                 onClick={() => setShowNewGroup(false)}
@@ -669,7 +674,7 @@ export default function MessagesPage() {
               <input
                 value={groupTitle}
                 onChange={(e) => setGroupTitle(e.target.value)}
-                placeholder="Group name (e.g. Defensive Tactics)"
+                placeholder={t("groupNamePlaceholder")}
                 className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm outline-none focus:border-pd-red"
               />
               <div className="relative">
@@ -680,7 +685,7 @@ export default function MessagesPage() {
                 <input
                   value={userSearch}
                   onChange={(e) => setUserSearch(e.target.value)}
-                  placeholder="Search members to add..."
+                  placeholder={t("searchMembers")}
                   className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-pd-red"
                 />
               </div>
@@ -726,7 +731,7 @@ export default function MessagesPage() {
             </div>
             <div className="flex items-center justify-between border-t border-slate-200 p-4">
               <span className="text-sm text-slate-500">
-                {groupMembers.size} selected
+                {t("selected", { n: groupMembers.size })}
               </span>
               <button
                 onClick={createGroup}
@@ -734,7 +739,7 @@ export default function MessagesPage() {
                 className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:opacity-50"
               >
                 {creating && <Loader2 size={16} className="animate-spin" />}
-                Create group
+                {t("createGroup")}
               </button>
             </div>
           </div>

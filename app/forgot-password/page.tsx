@@ -2,9 +2,13 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageToggle } from "@/components/language-toggle";
 
 export default function ForgotPasswordPage() {
+  const t = useTranslations("forgotPassword");
+  const ta = useTranslations("auth");
   const supabase = createClient();
 
   const [email, setEmail] = useState("");
@@ -31,14 +35,12 @@ export default function ForgotPasswordPage() {
 
       setSent(true);
       // Intentionally generic so we don't reveal whether an email is registered.
-      setMessage(
-        "If an account exists for that email, a password reset link is on its way. Check your inbox."
-      );
+      setMessage(t("sent"));
     } catch (error) {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Something went wrong. Please try again."
+          : ta("genericError")
       );
     } finally {
       setLoading(false);
@@ -46,25 +48,27 @@ export default function ForgotPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-pd-navy-deep p-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-pd-navy-deep p-6">
+      <div className="absolute right-4 top-4">
+        <LanguageToggle tone="dark" />
+      </div>
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-pd-navy p-8 shadow-2xl shadow-black/40">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
-            Reset your password
+            {t("title")}
           </h1>
 
           <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
 
           <p className="mt-4 text-sm text-slate-300">
-            Enter your email and we&apos;ll send you a link to reset your
-            password.
+            {t("subtitle")}
           </p>
         </div>
 
         <form onSubmit={handleSubmit} className="space-y-5">
           <div>
             <label className="mb-2 block text-sm font-medium text-slate-200">
-              Email address
+              {ta("email")}
             </label>
 
             <input
@@ -90,18 +94,18 @@ export default function ForgotPasswordPage() {
               disabled={loading}
               className="w-full rounded-lg bg-pd-red px-4 py-3 font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Sending..." : "Send reset link"}
+              {loading ? t("sending") : t("send")}
             </button>
           )}
         </form>
 
         <div className="mt-6 text-center text-sm text-slate-400">
-          Remembered your password?
+          {t("remembered")}
           <Link
             href="/login"
             className="ml-2 font-semibold text-pd-red hover:text-pd-red-hover"
           >
-            Back to sign in
+            {ta("backToSignIn")}
           </Link>
         </div>
       </div>

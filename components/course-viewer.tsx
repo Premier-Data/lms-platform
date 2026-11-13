@@ -3,6 +3,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import {
   ArrowLeft,
   ChevronLeft,
@@ -126,6 +127,7 @@ export function CourseViewer({
   gatedQuizIds = [],
   passedQuizIds = [],
 }: CourseViewerProps) {
+  const t = useTranslations("viewer");
   const router = useRouter();
   const supabase = createClient();
 
@@ -543,18 +545,18 @@ export function CourseViewer({
           className="inline-flex items-center gap-2 text-sm font-medium text-slate-500 transition hover:text-slate-900"
         >
           <ArrowLeft size={18} />
-          Back to My Courses
+          {t("backToCourses")}
         </Link>
 
         <div className="flex items-center gap-3">
           {status === "completed" ? (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-green-100 px-3 py-1.5 text-sm font-medium text-green-700">
               <CheckCircle2 size={16} />
-              Completed
+              {t("completed")}
             </span>
           ) : (
             <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-3 py-1.5 text-sm font-medium text-amber-700">
-              In Progress
+              {t("inProgress")}
             </span>
           )}
 
@@ -568,7 +570,7 @@ export function CourseViewer({
             ) : (
               <Save size={16} />
             )}
-            Save &amp; exit
+            {t("saveExit")}
           </button>
         </div>
       </div>
@@ -579,7 +581,10 @@ export function CourseViewer({
         </h1>
         <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
         <p className="mt-3 text-sm text-slate-500">
-          {completedLessons.size} of {orderedLessons.length} lessons complete
+          {t("lessonsComplete", {
+            done: completedLessons.size,
+            total: orderedLessons.length,
+          })}
         </p>
       </div>
 
@@ -625,7 +630,7 @@ export function CourseViewer({
                         disabled={locked}
                         title={
                           locked
-                            ? "Answer the required questions in earlier lessons to unlock"
+                            ? t("lockedLessonHint")
                             : undefined
                         }
                         className={`flex w-full items-center gap-2.5 rounded-lg px-3 py-2 text-left text-sm transition disabled:cursor-not-allowed disabled:opacity-50 ${
@@ -656,7 +661,7 @@ export function CourseViewer({
                   })}
                   {modLessons.length === 0 && (
                     <p className="px-3 py-2 text-xs text-slate-400">
-                      No lessons
+                      {t("noLessons")}
                     </p>
                   )}
                 </div>
@@ -669,7 +674,7 @@ export function CourseViewer({
         <div className="rounded-2xl border border-slate-200 bg-white">
           {!activeLesson ? (
             <div className="px-8 py-20 text-center text-slate-400">
-              This course has no lessons yet.
+              {t("noLessonsInCourse")}
             </div>
           ) : activeLesson.lesson_type === "quiz" ? (
             <QuizTaker
@@ -705,8 +710,7 @@ export function CourseViewer({
                   {activeLesson.title}
                 </h2>
                 <p className="mt-1 text-sm text-slate-500">
-                  Watch the video and click a stat the moment it happens, then
-                  submit to be graded.
+                  {t("drillIntro")}
                 </p>
               </div>
               <CodingDrillPlayer
@@ -763,7 +767,7 @@ export function CourseViewer({
                   </>
                 ) : (
                   <p className="py-12 text-center text-sm text-slate-400">
-                    This lesson has no content yet.
+                    {t("noContent")}
                   </p>
                 )}
               </div>
@@ -777,17 +781,20 @@ export function CourseViewer({
                     className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 disabled:opacity-30"
                   >
                     <ChevronLeft size={17} />
-                    Previous
+                    {t("previous")}
                   </button>
                   <span className="text-xs text-slate-400">
-                    Page {pageIndex + 1} of {lessonPages.length}
+                    {t("pageOf", {
+                      page: pageIndex + 1,
+                      total: lessonPages.length,
+                    })}
                   </span>
                   <button
                     disabled={isLastPage || pendingOnPage > 0}
                     onClick={() => setPageIndex((i) => i + 1)}
                     className="inline-flex items-center gap-2 text-sm font-medium text-slate-600 disabled:opacity-30"
                   >
-                    Next
+                    {t("next")}
                     <ChevronRight size={17} />
                   </button>
                 </div>
@@ -797,12 +804,12 @@ export function CourseViewer({
                 <p className="flex items-center justify-center gap-1.5 border-t border-slate-100 px-8 py-2 text-xs text-slate-500">
                   <Lock size={12} />
                   {pendingItemsOnPage.every((q) => q.kind === "video")
-                    ? "Watch the video to the end to continue."
+                    ? t("gateVideo")
                     : pendingItemsOnPage.every((q) => q.kind === "question")
                       ? pendingOnPage === 1
-                        ? "Answer the question above to continue."
-                        : "Answer the questions above to continue."
-                      : "Finish the video and questions above to continue."}
+                        ? t("gateQuestion")
+                        : t("gateQuestions")
+                      : t("gateMixed")}
                 </p>
               )}
 
@@ -814,7 +821,7 @@ export function CourseViewer({
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50 disabled:cursor-not-allowed disabled:opacity-30"
                 >
                   <ChevronLeft size={16} />
-                  Previous lesson
+                  {t("previousLesson")}
                 </button>
 
                 {isLastLesson ? (
@@ -834,15 +841,15 @@ export function CourseViewer({
                       {status === "completed" ? (
                         <>
                           <CheckCircle2 size={16} />
-                          Completed
+                          {t("completed")}
                         </>
                       ) : (
-                        "Mark course complete"
+                        t("markComplete")
                       )}
                     </button>
                     {!allLessonsComplete && status !== "completed" && (
                       <span className="text-xs text-slate-400">
-                        Finish all lessons to complete the course.
+                        {t("finishAll")}
                       </span>
                     )}
                   </div>
@@ -852,7 +859,7 @@ export function CourseViewer({
                     disabled={!isLastPage || pendingCount > 0}
                     className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-40"
                   >
-                    Next lesson
+                    {t("nextLesson")}
                     <ChevronRight size={16} />
                   </button>
                 )}
@@ -865,7 +872,7 @@ export function CourseViewer({
       {savedNotice && (
         <div className="fixed bottom-6 right-6 flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-3 text-sm font-medium text-white shadow-lg">
           <Check size={16} className="text-green-400" />
-          Progress saved
+          {t("progressSaved")}
         </div>
       )}
     </div>

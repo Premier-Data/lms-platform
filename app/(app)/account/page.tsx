@@ -2,10 +2,12 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
 import { Loader2, User, Lock, LogOut } from "lucide-react";
 
 export default function AccountPage() {
+  const t = useTranslations("account");
   const router = useRouter();
   const supabase = createClient();
 
@@ -57,7 +59,7 @@ export default function AccountPage() {
     } = await supabase.auth.getUser();
 
     if (!user) {
-      setProfileMessage("You are not signed in.");
+      setProfileMessage(t("notSignedIn"));
       setSaving(false);
       return;
     }
@@ -70,7 +72,7 @@ export default function AccountPage() {
     if (error) {
       setProfileMessage(error.message);
     } else {
-      setProfileMessage("Profile updated.");
+      setProfileMessage(t("profileUpdated"));
       router.refresh();
     }
 
@@ -82,12 +84,12 @@ export default function AccountPage() {
     setPasswordMessage("");
 
     if (newPassword !== confirmPassword) {
-      setPasswordMessage("New passwords do not match.");
+      setPasswordMessage(t("passwordMismatch"));
       return;
     }
 
     if (newPassword.length < 6) {
-      setPasswordMessage("Password must be at least 6 characters.");
+      setPasswordMessage(t("passwordTooShort"));
       return;
     }
 
@@ -100,7 +102,7 @@ export default function AccountPage() {
     if (error) {
       setPasswordMessage(error.message);
     } else {
-      setPasswordMessage("Password updated successfully.");
+      setPasswordMessage(t("passwordUpdated"));
       setCurrentPassword("");
       setNewPassword("");
       setConfirmPassword("");
@@ -127,13 +129,13 @@ export default function AccountPage() {
     <div className="mx-auto max-w-2xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Account
+          {t("title")}
         </h1>
 
         <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
 
         <p className="mt-4 text-slate-500">
-          Manage your profile and account settings.
+          {t("subtitle")}
         </p>
       </div>
 
@@ -143,13 +145,15 @@ export default function AccountPage() {
           <div className="rounded-xl bg-pd-red/10 p-2.5 text-pd-red">
             <User size={20} />
           </div>
-          <h2 className="text-lg font-semibold text-slate-900">Profile</h2>
+          <h2 className="text-lg font-semibold text-slate-900">
+            {t("profile")}
+          </h2>
         </div>
 
         <form onSubmit={handleUpdateProfile} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">
-              Email address
+              {t("email")}
             </label>
             <input
               type="email"
@@ -158,20 +162,20 @@ export default function AccountPage() {
               className="mt-2 w-full rounded-xl border border-slate-200 bg-slate-50 px-4 py-3 text-slate-500"
             />
             <p className="mt-1 text-xs text-slate-400">
-              Email cannot be changed here.
+              {t("emailLocked")}
             </p>
           </div>
 
           <div>
             <label className="block text-sm font-medium text-slate-700">
-              Full name
+              {t("fullName")}
             </label>
             <input
               type="text"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
               className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-pd-red"
-              placeholder="Your full name"
+              placeholder={t("fullNamePlaceholder")}
             />
           </div>
 
@@ -188,7 +192,7 @@ export default function AccountPage() {
               className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:opacity-50"
             >
               {saving && <Loader2 size={16} className="animate-spin" />}
-              {saving ? "Saving..." : "Save changes"}
+              {saving ? t("saving") : t("saveChanges")}
             </button>
           </div>
         </form>
@@ -201,14 +205,14 @@ export default function AccountPage() {
             <Lock size={20} />
           </div>
           <h2 className="text-lg font-semibold text-slate-900">
-            Change password
+            {t("changePassword")}
           </h2>
         </div>
 
         <form onSubmit={handleChangePassword} className="space-y-4">
           <div>
             <label className="block text-sm font-medium text-slate-700">
-              New password
+              {t("newPassword")}
             </label>
             <input
               type="password"
@@ -223,7 +227,7 @@ export default function AccountPage() {
 
           <div>
             <label className="block text-sm font-medium text-slate-700">
-              Confirm new password
+              {t("confirmPassword")}
             </label>
             <input
               type="password"
@@ -251,7 +255,7 @@ export default function AccountPage() {
               {changingPassword && (
                 <Loader2 size={16} className="animate-spin" />
               )}
-              {changingPassword ? "Updating..." : "Update password"}
+              {changingPassword ? t("updating") : t("updatePassword")}
             </button>
           </div>
         </form>
@@ -261,9 +265,11 @@ export default function AccountPage() {
       <section className="mt-6 rounded-2xl border border-slate-200 bg-white p-6">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="font-semibold text-slate-900">Sign out</h2>
+            <h2 className="font-semibold text-slate-900">
+              {t("signOut")}
+            </h2>
             <p className="mt-1 text-sm text-slate-500">
-              End your current session on this device.
+              {t("signOutHint")}
             </p>
           </div>
 
@@ -273,7 +279,7 @@ export default function AccountPage() {
             className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
           >
             <LogOut size={16} />
-            Sign out
+            {t("signOut")}
           </button>
         </div>
       </section>

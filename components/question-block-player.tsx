@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 import { CheckCircle2, ChevronRight, RotateCcw, XCircle } from "lucide-react";
 import { QuestionMedia } from "@/components/question-media";
 import {
@@ -20,6 +21,7 @@ type Props = {
 
 /** Learner-facing one-off question, styled like a quiz question. */
 export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
+  const t = useTranslations("question");
   const config = parseQuestionConfig(content);
 
   const [selected, setSelected] = useState<string[]>(
@@ -71,7 +73,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
   if (!config.question_text.trim() && config.options.every((o) => !o.content)) {
     return (
       <div className="rounded-xl border border-dashed border-slate-300 px-6 py-8 text-center text-sm text-slate-400">
-        This question hasn&apos;t been written yet.
+        {t("notWritten")}
       </div>
     );
   }
@@ -93,7 +95,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
         {config.question_text}
       </h3>
       {config.question_type === "multiple_choice" && (
-        <p className="mt-1 text-xs text-slate-400">Select all that apply.</p>
+        <p className="mt-1 text-xs text-slate-400">{t("selectAll")}</p>
       )}
 
       <div className="mt-5">
@@ -109,7 +111,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
                 submit();
               }
             }}
-            placeholder="Type your answer..."
+            placeholder={t("typeAnswer")}
             className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-pd-red disabled:bg-slate-50"
           />
         ) : (
@@ -155,7 +157,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
                       // eslint-disable-next-line @next/next/no-img-element
                       <img
                         src={opt.image_url}
-                        alt={opt.content || "Answer option"}
+                        alt={opt.content || t("answerOption")}
                         className="mb-2 max-h-48 w-full rounded-lg object-contain"
                       />
                     )}
@@ -176,7 +178,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
             disabled={!hasAnswer}
             className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-6 py-3 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-40"
           >
-            Submit Answer
+            {t("submit")}
             <ChevronRight size={18} />
           </button>
         </div>
@@ -198,10 +200,10 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
             )}
             <span className="font-semibold">
               {result.correct
-                ? "Correct!"
+                ? t("correct")
                 : config.gate === "correct"
-                  ? "Not quite. Try again to continue."
-                  : "Incorrect"}
+                  ? t("notQuite")
+                  : t("incorrect")}
             </span>
             {canRetry && (
               <button
@@ -210,7 +212,7 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
                 className="ml-auto inline-flex items-center gap-1.5 rounded-lg border border-current px-3 py-1.5 text-xs font-semibold"
               >
                 <RotateCcw size={13} />
-                Try again
+                {t("tryAgain")}
               </button>
             )}
           </div>
@@ -223,11 +225,9 @@ export function QuestionBlockPlayer({ content, savedAnswer, onAnswer }: Props) {
 
           {revealAnswers && isShort && (
             <p className="text-sm text-slate-600">
-              Accepted answer
-              {config.options.filter((o) => o.content.trim()).length !== 1
-                ? "s"
-                : ""}
-              :{" "}
+              {t("accepted", {
+                n: config.options.filter((o) => o.content.trim()).length,
+              })}{" "}
               <span className="font-medium text-green-700">
                 {config.options
                   .map((o) => o.content.trim())

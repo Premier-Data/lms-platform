@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
+import { useTranslations } from "next-intl";
 import {
   CheckCircle2,
   XCircle,
@@ -103,6 +104,7 @@ export function QuizTaker({
   lessonTitle,
   onComplete,
 }: QuizTakerProps) {
+  const t = useTranslations("quiz");
   const supabase = createClient();
 
   const [phase, setPhase] = useState<Phase>("loading");
@@ -505,12 +507,16 @@ export function QuizTaker({
 
           <div className="mt-6 flex flex-wrap justify-center gap-4 text-sm text-slate-600">
             <span className="flex items-center gap-1.5">
-              <span className="font-semibold">{questions.length}</span>{" "}
-              questions
+              {t.rich("questionCount", {
+                n: questions.length,
+                b: (c) => <span className="font-semibold">{c}</span>,
+              })}
             </span>
             <span className="flex items-center gap-1.5">
-              Pass mark:{" "}
-              <span className="font-semibold">{config?.pass_mark ?? 80}%</span>
+              {t.rich("passMark", {
+                n: config?.pass_mark ?? 80,
+                b: (c) => <span className="font-semibold">{c}</span>,
+              })}
             </span>
             {config?.time_limit_seconds && (
               <span className="flex items-center gap-1.5">
@@ -522,8 +528,7 @@ export function QuizTaker({
 
           {previousAttempts > 0 && (
             <p className="mt-4 text-xs text-slate-400">
-              You have made {previousAttempts} attempt
-              {previousAttempts !== 1 ? "s" : ""} on this quiz.
+              {t("attemptsMade", { n: previousAttempts })}
             </p>
           )}
 
@@ -532,7 +537,7 @@ export function QuizTaker({
             className="mt-8 inline-flex items-center gap-2 rounded-xl bg-pd-red px-6 py-3 text-sm font-semibold text-white transition hover:bg-pd-red-hover"
           >
             <Play size={18} />
-            Start Quiz
+            {t("start")}
           </button>
         </div>
       </div>
@@ -546,7 +551,10 @@ export function QuizTaker({
         {/* Header: progress + timer */}
         <div className="mb-6 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-500">
-            Question {currentIndex + 1} of {orderedQuestions.length}
+            {t("questionOf", {
+              n: currentIndex + 1,
+              total: orderedQuestions.length,
+            })}
           </span>
           {timeRemaining !== null && (
             <span
@@ -600,7 +608,7 @@ export function QuizTaker({
                     textAnswer: e.target.value,
                   })
                 }
-                placeholder="Type your answer..."
+                placeholder={t("typeAnswer")}
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-pd-red"
               />
             ) : (
@@ -635,7 +643,7 @@ export function QuizTaker({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={opt.image_url}
-                            alt={opt.content || "Answer option"}
+                            alt={opt.content || t("answerOption")}
                             className="mb-2 max-h-48 w-full rounded-lg object-contain"
                           />
                         )}
@@ -655,7 +663,7 @@ export function QuizTaker({
               disabled={!hasAnswered}
               className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-6 py-3 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-40"
             >
-              Submit Answer
+              {t("submitAnswer")}
               <ChevronRight size={18} />
             </button>
           </div>
@@ -671,7 +679,10 @@ export function QuizTaker({
         {/* Header: progress + timer (still ticking) */}
         <div className="mb-6 flex items-center justify-between">
           <span className="text-sm font-medium text-slate-500">
-            Question {currentIndex + 1} of {orderedQuestions.length}
+            {t("questionOf", {
+              n: currentIndex + 1,
+              total: orderedQuestions.length,
+            })}
           </span>
           {timeRemaining !== null && (
             <span
@@ -702,7 +713,7 @@ export function QuizTaker({
               <XCircle size={24} className="text-red-600" />
             )}
             <span className="text-lg font-semibold">
-              {isCurrentCorrect ? "Correct!" : "Incorrect"}
+              {isCurrentCorrect ? t("correct") : t("incorrect")}
             </span>
           </div>
 
@@ -718,7 +729,7 @@ export function QuizTaker({
             currentQuestion.question_type !== "short_answer" && (
               <div className="mb-6">
                 <p className="text-xs font-medium uppercase tracking-wider text-slate-500">
-                  Correct answer:
+                  {t("correctAnswer")}
                 </p>
                 <div className="mt-2 space-y-1">
                   {currentQuestion.quiz_options
@@ -733,7 +744,7 @@ export function QuizTaker({
                           // eslint-disable-next-line @next/next/no-img-element
                           <img
                             src={o.image_url}
-                            alt={o.content || "Correct answer"}
+                            alt={o.content || t("correctAnswerAlt")}
                             className="h-12 w-12 rounded-lg border border-green-200 object-cover"
                           />
                         )}
@@ -751,8 +762,8 @@ export function QuizTaker({
               className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-6 py-3 text-sm font-semibold text-white transition hover:bg-pd-red-hover"
             >
               {currentIndex + 1 >= orderedQuestions.length
-                ? "See Results"
-                : "Continue"}
+                ? t("seeResults")
+                : t("continue")}
               <ChevronRight size={18} />
             </button>
           </div>
@@ -773,15 +784,16 @@ export function QuizTaker({
             </div>
 
             <h2 className="mt-5 text-2xl font-bold text-slate-900">
-              Quiz Completed
+              {t("completedTitle")}
             </h2>
 
             <p className="mt-3 text-slate-500">
-              You&apos;ve already passed this quiz with a best score of{" "}
-              <span className="font-semibold text-green-700">
-                {bestScore}%
-              </span>
-              .
+              {t.rich("alreadyPassed", {
+                n: bestScore,
+                b: (c) => (
+                  <span className="font-semibold text-green-700">{c}</span>
+                ),
+              })}
             </p>
 
             <div className="mt-6 flex justify-center gap-3">
@@ -791,14 +803,14 @@ export function QuizTaker({
                   className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                 >
                   <RotateCcw size={16} />
-                  Retake
+                  {t("retake")}
                 </button>
               )}
               <button
                 onClick={() => onComplete(true)}
                 className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover"
               >
-                Continue
+                {t("continue")}
                 <ChevronRight size={16} />
               </button>
             </div>
@@ -831,7 +843,7 @@ export function QuizTaker({
 
               <h2 className="mt-5 text-2xl font-bold text-slate-900">
                 {config?.end_title ||
-                  (passed ? "Quiz Passed!" : "Quiz Not Passed")}
+                  (passed ? t("passedTitle") : t("notPassedTitle"))}
               </h2>
 
               {config?.end_message && (
@@ -845,10 +857,10 @@ export function QuizTaker({
                   {percentage}%
                 </p>
                 <p className="mt-1 text-sm text-slate-500">
-                  {score} of {maxScore} points
+                  {t("points", { score, max: maxScore })}
                 </p>
                 <p className="mt-2 text-xs text-slate-400">
-                  Pass mark: {config?.pass_mark ?? 80}%
+                  {t("passMarkPlain", { n: config?.pass_mark ?? 80 })}
                 </p>
               </div>
 
@@ -862,12 +874,12 @@ export function QuizTaker({
                 {passed ? (
                   <>
                     <CheckCircle2 size={16} />
-                    Passed
+                    {t("passed")}
                   </>
                 ) : (
                   <>
                     <XCircle size={16} />
-                    Not Passed
+                    {t("notPassed")}
                   </>
                 )}
               </div>
@@ -879,21 +891,19 @@ export function QuizTaker({
                     className="inline-flex items-center gap-2 rounded-xl border border-slate-300 px-5 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
                   >
                     <RotateCcw size={16} />
-                    Retry Quiz
+                    {t("retry")}
                   </button>
                 )}
 
                 {!passed && canRetry && (
                   <p className="w-full text-sm text-slate-500">
-                    You need {config?.pass_mark ?? 80}% to pass. Retry the quiz
-                    to continue; the questions and answers will be in a new
-                    order.
+                    {t("retryHint", { n: config?.pass_mark ?? 80 })}
                   </p>
                 )}
 
                 {!passed && !canRetry && (
                   <p className="text-sm text-red-600">
-                    No retries remaining. Contact your administrator.
+                    {t("noRetries")}
                   </p>
                 )}
 
@@ -902,7 +912,7 @@ export function QuizTaker({
                     onClick={() => onComplete(true)}
                     className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover"
                   >
-                    Continue
+                    {t("continue")}
                     <ChevronRight size={16} />
                   </button>
                 )}

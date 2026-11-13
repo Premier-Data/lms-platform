@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { statColor, type DrillEvent } from "@/lib/coding-drill";
 
 type Props = {
@@ -26,11 +27,14 @@ function countBy(events: DrillEvent[]): Map<string, number> {
 export function DrillSummary({
   stats,
   events,
-  countLabel = "Coded",
+  countLabel,
   compareEvents,
-  compareLabel = "Master",
+  compareLabel,
   colors,
 }: Props) {
+  const t = useTranslations("drill");
+  const countHeader = countLabel ?? t("coded");
+  const compareHeader = compareLabel ?? t("master");
   const counts = countBy(events);
   const compare = compareEvents ? countBy(compareEvents) : null;
 
@@ -48,13 +52,15 @@ export function DrillSummary({
       <table className="w-full text-sm">
         <thead className="bg-slate-50 text-xs uppercase tracking-wider text-slate-500">
           <tr>
-            <th className="px-3 py-2 text-left font-semibold">Stat</th>
+            <th className="px-3 py-2 text-left font-semibold">
+              {t("stat")}
+            </th>
             <th className="px-3 py-2 text-right font-semibold">
-              {countLabel}
+              {countHeader}
             </th>
             {compare && (
               <th className="px-3 py-2 text-right font-semibold">
-                {compareLabel}
+                {compareHeader}
               </th>
             )}
           </tr>
@@ -92,7 +98,7 @@ export function DrillSummary({
         </tbody>
         <tfoot>
           <tr className="border-t-2 border-slate-200 bg-slate-50 font-bold text-slate-900">
-            <td className="px-3 py-2">Total</td>
+            <td className="px-3 py-2">{t("total")}</td>
             <td className="px-3 py-2 text-right tabular-nums">{total}</td>
             {compare && (
               <td className="px-3 py-2 text-right tabular-nums">

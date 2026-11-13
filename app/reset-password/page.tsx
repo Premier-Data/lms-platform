@@ -2,9 +2,13 @@
 
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslations } from "next-intl";
 import { createClient } from "@/lib/supabase/client";
+import { LanguageToggle } from "@/components/language-toggle";
 
 export default function ResetPasswordPage() {
+  const t = useTranslations("resetPassword");
+  const ta = useTranslations("auth");
   const router = useRouter();
   const supabase = createClient();
 
@@ -24,21 +28,20 @@ export default function ResetPasswordPage() {
       } = await supabase.auth.getSession();
 
       if (!session) {
-        setMessage(
-          "This reset link is invalid or has expired. Please request a new one."
-        );
+        setMessage(t("invalidLink"));
       }
       setCheckingSession(false);
     }
 
     checkSession();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [supabase]);
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
 
     if (password !== confirmPassword) {
-      setMessage("Passwords do not match.");
+      setMessage(t("mismatch"));
       return;
     }
 
@@ -56,7 +59,7 @@ export default function ResetPasswordPage() {
       if (error) throw error;
 
       setDone(true);
-      setMessage("Your password has been updated. Redirecting you now...");
+      setMessage(t("updated"));
 
       setTimeout(() => {
         router.push("/dashboard");
@@ -66,7 +69,7 @@ export default function ResetPasswordPage() {
       setMessage(
         error instanceof Error
           ? error.message
-          : "Something went wrong. Please try again."
+          : ta("genericError")
       );
     } finally {
       setLoading(false);
@@ -74,27 +77,30 @@ export default function ResetPasswordPage() {
   }
 
   return (
-    <main className="flex min-h-screen items-center justify-center bg-pd-navy-deep p-6">
+    <main className="relative flex min-h-screen items-center justify-center bg-pd-navy-deep p-6">
+      <div className="absolute right-4 top-4">
+        <LanguageToggle tone="dark" />
+      </div>
       <div className="w-full max-w-md rounded-2xl border border-white/10 bg-pd-navy p-8 shadow-2xl shadow-black/40">
         <div className="mb-8">
           <h1 className="text-3xl font-extrabold tracking-tight text-white">
-            Set a new password
+            {t("title")}
           </h1>
 
           <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
 
           <p className="mt-4 text-sm text-slate-300">
-            Choose a new password for your account.
+            {t("subtitle")}
           </p>
         </div>
 
         {checkingSession ? (
-          <p className="text-sm text-slate-300">Verifying your reset link...</p>
+          <p className="text-sm text-slate-300">{t("verifying")}</p>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-200">
-                New password
+                {t("newPassword")}
               </label>
 
               <input
@@ -111,7 +117,7 @@ export default function ResetPasswordPage() {
 
             <div>
               <label className="mb-2 block text-sm font-medium text-slate-200">
-                Confirm new password
+                {t("confirmPassword")}
               </label>
 
               <input
@@ -137,7 +143,7 @@ export default function ResetPasswordPage() {
               disabled={loading || done}
               className="w-full rounded-lg bg-pd-red px-4 py-3 font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-50"
             >
-              {loading ? "Updating..." : "Update password"}
+              {loading ? t("updating") : t("update")}
             </button>
           </form>
         )}

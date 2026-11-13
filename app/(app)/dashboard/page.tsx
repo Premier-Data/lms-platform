@@ -1,3 +1,4 @@
+import { getTranslations } from "next-intl/server";
 import { createClient } from "@/lib/supabase/server";
 import {
   BookOpen,
@@ -22,6 +23,7 @@ function extractCategoryNames(course: unknown): string[] {
 }
 
 export default async function DashboardPage() {
+  const t = await getTranslations("dashboard");
   const supabase = await createClient();
 
   const {
@@ -67,37 +69,37 @@ export default async function DashboardPage() {
     <div className="mx-auto max-w-7xl">
       <div className="mb-8">
         <h1 className="text-3xl font-bold tracking-tight text-slate-900">
-          Training Dashboard
+          {t("title")}
         </h1>
 
         <div className="mt-3 h-1 w-12 rounded-full bg-pd-red" />
 
         <p className="mt-4 text-slate-500">
-          Track your learning and continue where you left off.
+          {t("subtitle")}
         </p>
       </div>
 
       <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-4">
         <DashboardStat
-          title="Assigned"
+          title={t("assigned")}
           value={totalCourses}
           icon={<BookOpen size={22} />}
         />
 
         <DashboardStat
-          title="In Progress"
+          title={t("inProgress")}
           value={inProgressCourses}
           icon={<Clock3 size={22} />}
         />
 
         <DashboardStat
-          title="Completed"
+          title={t("completed")}
           value={completedCourses}
           icon={<CheckCircle2 size={22} />}
         />
 
         <DashboardStat
-          title="Completion Rate"
+          title={t("completionRate")}
           value={`${completionRate}%`}
           icon={<TrendingUp size={22} />}
           highlight={completionRate === 100}
@@ -107,11 +109,11 @@ export default async function DashboardPage() {
       <section className="mt-10">
         <div className="mb-5">
           <h2 className="text-xl font-semibold text-slate-900">
-            Continue Learning
+            {t("continueLearning")}
           </h2>
 
           <p className="mt-1 text-sm text-slate-500">
-            Your assigned training courses will appear here.
+            {t("continueHint")}
           </p>
         </div>
 
@@ -132,14 +134,14 @@ export default async function DashboardPage() {
 
                 <h3 className="mt-5 font-semibold text-slate-900">
                   {(assignments?.length ?? 0) > 0
-                    ? "All caught up!"
-                    : "No training assigned yet"}
+                    ? t("allCaughtUp")
+                    : t("noneAssigned")}
                 </h3>
 
                 <p className="mx-auto mt-2 max-w-md text-sm text-slate-500">
                   {(assignments?.length ?? 0) > 0
-                    ? "You've completed all your assigned training."
-                    : "When training courses are assigned to you, they will appear here."}
+                    ? t("allDone")
+                    : t("noneAssignedHint")}
                 </p>
               </div>
             );

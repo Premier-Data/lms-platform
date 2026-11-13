@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CheckCircle2, Lock } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { parseYouTubeId } from "@/lib/coding-drill";
 import { loadYouTubeApi } from "@/components/drill-video";
 
@@ -37,6 +38,7 @@ export function RestrictedVideo({
   restricted = true,
   className,
 }: Props) {
+  const tr = useTranslations("video");
   const ytId = parseYouTubeId(url);
   const [finished, setFinished] = useState(false);
 
@@ -78,12 +80,12 @@ export function RestrictedVideo({
           {finished ? (
             <>
               <CheckCircle2 size={13} />
-              Video watched.
+              {tr("watched")}
             </>
           ) : (
             <>
               <Lock size={13} />
-              Watch the whole video to continue. Skipping ahead is disabled.
+              {tr("watchAll")}
             </>
           )}
         </p>
