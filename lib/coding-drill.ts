@@ -29,6 +29,11 @@ export type DrillConfig = {
   endTime?: number;
   /** optional instructions shown to learners above the video */
   description?: string;
+  /**
+   * optional pass mark (1-100, % accuracy). Learners at or above it pass the
+   * drill; when unset any graded attempt completes the lesson.
+   */
+  passMark?: number;
 };
 
 // Default stat set (more can be added later by admins per drill).
@@ -145,6 +150,11 @@ export function parseDrillConfig(raw: unknown): DrillConfig {
       ? obj.description
       : undefined;
 
+  const passMark =
+    typeof obj.passMark === "number" && obj.passMark > 0 && obj.passMark <= 100
+      ? Math.round(obj.passMark)
+      : undefined;
+
   return {
     videoUrl,
     tolerance,
@@ -154,6 +164,7 @@ export function parseDrillConfig(raw: unknown): DrillConfig {
     startTime,
     endTime,
     description,
+    passMark,
   };
 }
 
@@ -187,53 +198,123 @@ export type GradeResult = {
   }[];
 };
 
+// Floating-point slack so a click exactly "tolerance" seconds away still counts.
+const EPS = 1e-6;
+// Cost of an impossible pairing; larger than any sum of real time differences
+// so the matcher always prefers more matches first.
+const NO_MATCH = 1e6;
+
+/**
+ * Minimum-cost assignment (Hungarian algorithm). `cost` must have rows <= cols.
+ * Returns, for each row, the column it is assigned to.
+ */
+function assignMinCost(cost: number[][]): number[] {
+  const n = cost.length;
+  const m = n > 0 ? cost[0].length : 0;
+  const u = new Array(n + 1).fill(0);
+  const v = new Array(m + 1).fill(0);
+  const p = new Array(m + 1).fill(0);
+  const way = new Array(m + 1).fill(0);
+  for (let i = 1; i <= n; i++) {
+    p[0] = i;
+    let j0 = 0;
+    const minv = new Array(m + 1).fill(Infinity);
+    const used = new Array(m + 1).fill(false);
+    do {
+      used[j0] = true;
+      const i0 = p[j0];
+      let delta = Infinity;
+      let j1 = 0;
+      for (let j = 1; j <= m; j++) {
+        if (used[j]) continue;
+        const cur = cost[i0 - 1][j - 1] - u[i0] - v[j];
+        if (cur < minv[j]) {
+          minv[j] = cur;
+          way[j] = j0;
+        }
+        if (minv[j] < delta) {
+          delta = minv[j];
+          j1 = j;
+        }
+      }
+      for (let j = 0; j <= m; j++) {
+        if (used[j]) {
+          u[p[j]] += delta;
+          v[j] -= delta;
+        } else {
+          minv[j] -= delta;
+        }
+      }
+      j0 = j1;
+    } while (p[j0] !== 0);
+    do {
+      const j1 = way[j0];
+      p[j0] = p[j1];
+      j0 = j1;
+    } while (j0);
+  }
+  const ans = new Array(n).fill(-1);
+  for (let j = 1; j <= m; j++) if (p[j] !== 0) ans[p[j] - 1] = j - 1;
+  return ans;
+}
+
 /**
  * Grade a learner timeline against the master.
- * Greedy best-match: for each master event, consume the nearest unused learner
- * event with the same stat within tolerance.
+ *
+ * A learner click matches a master event when it has the same stat and is
+ * within `tolerance` seconds. Pairings are chosen globally, per stat: first
+ * the largest possible number of matches, then the smallest total time
+ * difference. This means a click is never "stolen" by a neighbouring master
+ * event when it sits closer to another one.
  */
 export function gradeDrill(
   master: DrillEvent[],
   learner: DrillEvent[],
   tolerance: number
 ): GradeResult {
-  const usedLearner = new Set<number>();
-  const detail: GradeResult["detail"] = [];
-  let exact = 0;
-
-  // Sort master by time for stable, intuitive matching.
+  // Sort master by time for stable, intuitive output.
   const masterSorted = [...master].sort((a, b) => a.t - b.t);
+  const matchOf = new Map<number, number>(); // master index -> learner index
 
-  for (const m of masterSorted) {
-    let bestIdx = -1;
-    let bestDelta = Infinity;
-    for (let i = 0; i < learner.length; i++) {
-      if (usedLearner.has(i)) continue;
-      const l = learner[i];
-      if (l.stat !== m.stat) continue;
-      const delta = Math.abs(l.t - m.t);
-      if (delta > tolerance) continue;
-      if (delta < bestDelta) {
-        bestDelta = delta;
-        bestIdx = i;
-      }
-    }
-    if (bestIdx === -1) {
-      detail.push({ stat: m.stat, t: m.t, matched: false, learnerT: null });
+  const stats = new Set(masterSorted.map((m) => m.stat));
+  for (const stat of stats) {
+    const mi = masterSorted
+      .map((m, i) => (m.stat === stat ? i : -1))
+      .filter((i) => i >= 0);
+    const li = learner
+      .map((l, i) => (l.stat === stat ? i : -1))
+      .filter((i) => i >= 0);
+    if (mi.length === 0 || li.length === 0) continue;
+
+    const costOf = (a: number, b: number) => {
+      const d = Math.abs(learner[li[b]].t - masterSorted[mi[a]].t);
+      return d <= tolerance + EPS ? d : NO_MATCH;
+    };
+
+    if (mi.length <= li.length) {
+      const cost = mi.map((_, a) => li.map((__, b) => costOf(a, b)));
+      assignMinCost(cost).forEach((b, a) => {
+        if (b >= 0 && cost[a][b] < NO_MATCH) matchOf.set(mi[a], li[b]);
+      });
     } else {
-      usedLearner.add(bestIdx);
-      exact += 1;
-      detail.push({
-        stat: m.stat,
-        t: m.t,
-        matched: true,
-        learnerT: learner[bestIdx].t,
+      // More master events than clicks: assign clicks to master events.
+      const cost = li.map((_, b) => mi.map((__, a) => costOf(a, b)));
+      assignMinCost(cost).forEach((a, b) => {
+        if (a >= 0 && cost[b][a] < NO_MATCH) matchOf.set(mi[a], li[b]);
       });
     }
   }
 
+  const detail: GradeResult["detail"] = masterSorted.map((m, i) => {
+    const l = matchOf.get(i);
+    return l === undefined
+      ? { stat: m.stat, t: m.t, matched: false, learnerT: null }
+      : { stat: m.stat, t: m.t, matched: true, learnerT: learner[l].t };
+  });
+
+  const exact = matchOf.size;
   const missed = masterSorted.length - exact;
-  const extra = learner.length - usedLearner.size;
+  const extra = learner.length - exact;
   const masterTotal = masterSorted.length;
   // Accuracy penalises BOTH missed master events and extra (wrong) clicks:
   // correct out of (everything they should have caught + everything they
@@ -242,6 +323,15 @@ export function gradeDrill(
   const accuracy = denom > 0 ? exact / denom : 0;
 
   return { exact, missed, extra, masterTotal, accuracy, detail };
+}
+
+/** Whether an attempt reaches the drill's pass mark (no pass mark = always). */
+export function isDrillPassed(
+  accuracy: number, // 0..1
+  passMark: number | undefined
+): boolean {
+  if (!passMark) return true;
+  return Math.round(accuracy * 100) >= passMark;
 }
 
 /** Format seconds as m:ss. */

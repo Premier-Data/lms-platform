@@ -163,7 +163,10 @@
     "extraIncorrect": "{n} thừa (sai)",
     "attempt": "Lần thử {n}",
     "missedEvents": "Sự kiện bỏ sót",
-    "jumpTo": "Chuyển đến thời điểm này trong video"
+    "jumpTo": "Chuyển đến thời điểm này trong video",
+    "passMarkInfo": "Điểm đạt: độ chính xác {n}%. Nhấp trong khoảng ±{s} giây so với thời điểm đúng sẽ được tính là chính xác.",
+    "passedMsg": "Đạt — bạn đã đạt mức điểm đạt {n}%.",
+    "failedMsg": "Chưa đạt — bạn cần độ chính xác {n}%. Hãy thử lại."
   },
   "viewer": {
     "backToCourses": "Quay lại Khóa học của tôi",

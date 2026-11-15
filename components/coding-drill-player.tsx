@@ -17,6 +17,7 @@ import {
   statColor,
   formatDrillTime,
   gradeDrill,
+  isDrillPassed,
   type DrillEvent,
   type GradeResult,
 } from "@/lib/coding-drill";
@@ -88,7 +89,8 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
       // Non-fatal: grading still shows locally even if save fails.
     }
     setSubmitting(false);
-    onGraded?.();
+    // With a pass mark, only a passing attempt completes the lesson.
+    if (isDrillPassed(graded.accuracy, config.passMark)) onGraded?.();
   }
 
   function retry() {
@@ -98,6 +100,9 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
   }
 
   const acc = result ? Math.round(result.accuracy * 100) : 0;
+  const passed = result
+    ? isDrillPassed(result.accuracy, config.passMark)
+    : false;
 
   return (
     <div className="overflow-hidden rounded-2xl border border-slate-200 bg-white">
@@ -112,6 +117,11 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
           </p>
         </div>
       )}
+      {config.passMark ? (
+        <div className="border-b border-slate-200 bg-slate-50 px-4 py-2 text-xs font-medium text-slate-600">
+          {td("passMarkInfo", { n: config.passMark, s: config.tolerance })}
+        </div>
+      ) : null}
       <div className="grid gap-0 lg:grid-cols-[1fr_300px]">
         {/* LEFT: video + vertical stat column */}
         <div className="min-w-0">
@@ -323,6 +333,25 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
               {td("attempt", { n: attemptCount })}
             </span>
           </div>
+
+          {config.passMark ? (
+            <div
+              className={`mt-3 flex items-center gap-2 rounded-xl px-4 py-3 text-sm font-semibold ${
+                passed
+                  ? "bg-emerald-50 text-emerald-700"
+                  : "bg-red-50 text-red-700"
+              }`}
+            >
+              {passed ? (
+                <CheckCircle2 size={18} />
+              ) : (
+                <X size={18} />
+              )}
+              {passed
+                ? td("passedMsg", { n: config.passMark })
+                : td("failedMsg", { n: config.passMark })}
+            </div>
+          ) : null}
 
           {/* Missed master events, so the learner can see what they missed */}
           {result.detail.some((d) => !d.matched) && (

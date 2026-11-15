@@ -192,7 +192,7 @@ export function CodingDrillEditor({ value, onChange }: Props) {
               Match tolerance
             </label>
             <div className="flex gap-1">
-              {[2, 3, 5].map((t) => (
+              {[1, 2, 3, 5].map((t) => (
                 <button
                   key={t}
                   type="button"
@@ -209,6 +209,34 @@ export function CodingDrillEditor({ value, onChange }: Props) {
             </div>
             <span className="text-xs text-slate-400">
               How close a learner&apos;s click must be to count as correct.
+            </span>
+          </div>
+
+          {/* Pass mark */}
+          <div className="flex flex-wrap items-center gap-2">
+            <label className="text-xs font-medium text-slate-500">
+              Pass mark
+            </label>
+            <input
+              type="number"
+              min={1}
+              max={100}
+              value={config.passMark ?? ""}
+              onChange={(e) => {
+                const n = parseInt(e.target.value, 10);
+                commit({
+                  ...config,
+                  passMark:
+                    Number.isFinite(n) && n > 0 ? Math.min(100, n) : undefined,
+                });
+              }}
+              placeholder="none"
+              className="w-20 rounded-lg border border-slate-300 bg-white px-2.5 py-1 text-sm outline-none focus:border-pd-red"
+            />
+            <span className="text-xs text-slate-500">%</span>
+            <span className="text-xs text-slate-400">
+              Accuracy learners need to pass. Leave blank for no pass mark
+              (any submitted attempt completes the lesson).
             </span>
           </div>
 
