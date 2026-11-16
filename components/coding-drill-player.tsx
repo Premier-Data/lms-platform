@@ -18,6 +18,7 @@ import {
   statColor,
   formatDrillTime,
   gradeDrill,
+  parseYouTubeStart,
   dedupeMaster,
   isDrillPassed,
   type DrillEvent,
@@ -120,7 +121,13 @@ export function CodingDrillPlayer({
   function retry() {
     setEvents([]);
     setResult(null);
-    videoRef.current?.seekTo(0);
+    // Back to where the drill starts (the clip start, or the link's t= time),
+    // not the beginning of the whole video.
+    videoRef.current?.seekTo(
+      config.startTime && config.startTime > 0
+        ? config.startTime
+        : parseYouTubeStart(config.videoUrl)
+    );
   }
 
   const acc = result ? Math.round(result.accuracy * 100) : 0;
