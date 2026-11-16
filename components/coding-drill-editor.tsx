@@ -101,6 +101,14 @@ export function CodingDrillEditor({ value, onChange }: Props) {
   function logMaster(stat: string) {
     const t = videoRef.current?.getCurrentTime() ?? 0;
     const event: DrillEvent = { stat, t: Math.round(t * 10) / 10 };
+    // Ignore an accidental double-click on the same stat.
+    if (
+      config.master.some(
+        (m) => m.stat === stat && Math.abs(m.t - event.t) < 0.1
+      )
+    ) {
+      return;
+    }
     const master = [...config.master, event].sort((a, b) => a.t - b.t);
     commit({ ...config, master });
   }

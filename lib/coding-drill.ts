@@ -198,6 +198,28 @@ export type GradeResult = {
   }[];
 };
 
+/**
+ * Two master events of the same stat closer together than this (seconds) are
+ * treated as one. A learner cannot click twice at the same instant, so a
+ * double-click while recording the master would otherwise always cost them a
+ * "miss". Kept tiny so genuinely separate quick events are not merged.
+ */
+export const MASTER_DUPLICATE_WINDOW = 0.1;
+
+/** Collapse same-stat master events that are within the duplicate window. */
+export function dedupeMaster(master: DrillEvent[]): DrillEvent[] {
+  const sorted = [...master].sort((a, b) => a.t - b.t);
+  const lastByStat = new Map<string, number>();
+  const out: DrillEvent[] = [];
+  for (const e of sorted) {
+    const prev = lastByStat.get(e.stat);
+    if (prev !== undefined && e.t - prev < MASTER_DUPLICATE_WINDOW) continue;
+    lastByStat.set(e.stat, e.t);
+    out.push(e);
+  }
+  return out;
+}
+
 // Floating-point slack so a click exactly "tolerance" seconds away still counts.
 const EPS = 1e-6;
 // Cost of an impossible pairing; larger than any sum of real time differences
@@ -273,7 +295,7 @@ export function gradeDrill(
   tolerance: number
 ): GradeResult {
   // Sort master by time for stable, intuitive output.
-  const masterSorted = [...master].sort((a, b) => a.t - b.t);
+  const masterSorted = dedupeMaster(master);
   const matchOf = new Map<number, number>(); // master index -> learner index
 
   const stats = new Set(masterSorted.map((m) => m.stat));

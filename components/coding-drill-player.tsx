@@ -18,6 +18,7 @@ import {
   statColor,
   formatDrillTime,
   gradeDrill,
+  dedupeMaster,
   isDrillPassed,
   type DrillEvent,
   type GradeResult,
@@ -219,7 +220,7 @@ export function CodingDrillPlayer({
                 events={events}
                 countLabel={td("you")}
                 // Only reveal the master counts once the attempt is graded.
-                compareEvents={result ? config.master : undefined}
+                compareEvents={result ? dedupeMaster(config.master) : undefined}
                 compareLabel={td("master")}
               />
               {!result && (
