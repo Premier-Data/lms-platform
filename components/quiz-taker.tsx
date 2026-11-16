@@ -148,6 +148,11 @@ export function QuizTaker({
   // Load quiz data
   useEffect(() => {
     async function load() {
+      // Only this learner's own attempts count towards "already passed".
+      const {
+        data: { user: me },
+      } = await supabase.auth.getUser();
+
       const [configRes, questionsRes, attemptsRes] = await Promise.all([
         supabase
           .from("quiz_config")
@@ -162,7 +167,8 @@ export function QuizTaker({
         supabase
           .from("quiz_attempts")
           .select("id, percentage, passed")
-          .eq("lesson_id", lessonId),
+          .eq("lesson_id", lessonId)
+          .eq("user_id", me?.id ?? ""),
       ]);
 
       // Vietnamese wording where a translation exists (grading uses ids, so
