@@ -2,6 +2,48 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 
+// GET /api/admin/learning-paths/assign?path_id=...
+// Lists the users already assigned to a learning path.
+export async function GET(request: Request) {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  }
+  const { data: roles } = await supabase
+    .from("user_roles")
+    .select("role")
+    .eq("user_id", user.id);
+  const isAdmin =
+    roles?.some((r) => r.role === "admin" || r.role === "super_admin") ?? false;
+  if (!isAdmin) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
+  }
+
+  const pathId = new URL(request.url).searchParams.get("path_id");
+  if (!pathId) {
+    return NextResponse.json({ error: "path_id is required" }, { status: 400 });
+  }
+
+  const admin = createAdminClient();
+  const { data, error } = await admin
+    .from("learning_path_assignments")
+    .select("*")
+    .eq("path_id", pathId);
+  if (error) {
+    return NextResponse.json({ error: error.message }, { status: 500 });
+  }
+
+  return NextResponse.json({
+    assignments: (data ?? []).map((a) => ({
+      user_id: a.user_id as string,
+      assigned_at: (a.assigned_at ?? a.created_at ?? null) as string | null,
+    })),
+  });
+}
+
 // POST /api/admin/learning-paths/assign
 // Assigns a learning path to one or more users.
 // Also auto-creates course_assignments for each course in the path.

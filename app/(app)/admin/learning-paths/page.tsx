@@ -55,6 +55,17 @@ export default function LearningPathsPage() {
   const [userSearch, setUserSearch] = useState("");
   const [assigning, setAssigning] = useState(false);
   const [assignMessage, setAssignMessage] = useState("");
+  // Users already on the path (shown highlighted, can't be re-selected)
+  const [assignedIds, setAssignedIds] = useState<Set<string>>(new Set());
+  const [loadingAssigned, setLoadingAssigned] = useState(false);
+
+  // "x users assigned" list
+  const [viewPath, setViewPath] = useState<Path | null>(null);
+  const [viewList, setViewList] = useState<
+    { user_id: string; assigned_at: string | null }[]
+  >([]);
+  const [viewSearch, setViewSearch] = useState("");
+  const [loadingView, setLoadingView] = useState(false);
 
   // Delete
   const [deletePath, setDeletePath] = useState<Path | null>(null);
@@ -142,6 +153,39 @@ export default function LearningPathsPage() {
     setDeleting(false);
     setDeletePath(null);
     loadData();
+  }
+
+  async function fetchAssigned(pathId: string) {
+    const res = await fetch(
+      `/api/admin/learning-paths/assign?path_id=${pathId}`
+    );
+    if (!res.ok) return [];
+    const d = await res.json();
+    return (d.assignments ?? []) as {
+      user_id: string;
+      assigned_at: string | null;
+    }[];
+  }
+
+  async function openAssign(path: Path) {
+    setAssignPath(path);
+    setSelectedUsers(new Set());
+    setUserSearch("");
+    setAssignMessage("");
+    setAssignedIds(new Set());
+    setLoadingAssigned(true);
+    const list = await fetchAssigned(path.id);
+    setAssignedIds(new Set(list.map((a) => a.user_id)));
+    setLoadingAssigned(false);
+  }
+
+  async function openAssignedList(path: Path) {
+    setViewPath(path);
+    setViewSearch("");
+    setViewList([]);
+    setLoadingView(true);
+    setViewList(await fetchAssigned(path.id));
+    setLoadingView(false);
   }
 
   async function handleAssign() {
@@ -276,20 +320,20 @@ export default function LearningPathsPage() {
                         </span>
                       ))}
                     </div>
-                    <p className="mt-3 text-xs text-slate-400">
+                    <button
+                      type="button"
+                      onClick={() => openAssignedList(path)}
+                      disabled={path.assignment_count === 0}
+                      className="mt-3 text-xs font-medium text-slate-500 underline-offset-2 transition hover:text-pd-red hover:underline disabled:cursor-default disabled:text-slate-400 disabled:no-underline"
+                    >
                       {path.assignment_count} user
                       {path.assignment_count !== 1 ? "s" : ""} assigned
-                    </p>
+                    </button>
                   </div>
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => {
-                        setAssignPath(path);
-                        setSelectedUsers(new Set());
-                        setUserSearch("");
-                        setAssignMessage("");
-                      }}
+                      onClick={() => openAssign(path)}
                       className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-pd-red transition hover:bg-pd-red/5"
                     >
                       <UserPlus size={16} />
@@ -487,12 +531,26 @@ export default function LearningPathsPage() {
             </div>
 
             <div className="flex-1 overflow-y-auto p-3">
-              {filteredUsers.map((u) => {
-                const selected = selectedUsers.has(u.id);
+              {loadingAssigned && (
+                <p className="flex items-center gap-2 px-3 py-2 text-xs text-slate-400">
+                  <Loader2 size={13} className="animate-spin" />
+                  Checking who is already assigned…
+                </p>
+              )}
+              {[...filteredUsers]
+                .sort(
+                  (a, b) =>
+                    Number(assignedIds.has(b.id)) - Number(assignedIds.has(a.id))
+                )
+                .map((u) => {
+                const already = assignedIds.has(u.id);
+                const selected = already || selectedUsers.has(u.id);
                 return (
                   <button
                     key={u.id}
                     type="button"
+                    disabled={already}
+                    title={already ? "Already assigned to this path" : undefined}
                     onClick={() => {
                       setSelectedUsers((prev) => {
                         const next = new Set(prev);
@@ -501,8 +559,12 @@ export default function LearningPathsPage() {
                         return next;
                       });
                     }}
-                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition ${
-                      selected ? "bg-pd-red/5" : "hover:bg-slate-50"
+                    className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition disabled:cursor-default ${
+                      already
+                        ? "bg-emerald-50"
+                        : selected
+                          ? "bg-pd-red/5"
+                          : "hover:bg-slate-50"
                     }`}
                   >
                     <div className="min-w-0">
@@ -513,11 +575,18 @@ export default function LearningPathsPage() {
                         {u.email}
                       </p>
                     </div>
+                    {already && (
+                      <span className="ml-2 mr-2 shrink-0 rounded-full bg-emerald-100 px-2 py-0.5 text-[11px] font-semibold text-emerald-700">
+                        Assigned
+                      </span>
+                    )}
                     <div
                       className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
-                        selected
-                          ? "border-pd-red bg-pd-red text-white"
-                          : "border-slate-300"
+                        already
+                          ? "border-emerald-500 bg-emerald-500 text-white"
+                          : selected
+                            ? "border-pd-red bg-pd-red text-white"
+                            : "border-slate-300"
                       }`}
                     >
                       {selected && <Check size={14} />}
@@ -535,7 +604,12 @@ export default function LearningPathsPage() {
               )}
               <div className="flex items-center justify-between">
                 <span className="text-sm text-slate-500">
-                  {selectedUsers.size} selected
+                  {selectedUsers.size} new selected
+                  {assignedIds.size > 0 && (
+                    <span className="text-slate-400">
+                      {" "}· {assignedIds.size} already assigned
+                    </span>
+                  )}
                 </span>
                 <button
                   onClick={handleAssign}
@@ -546,6 +620,119 @@ export default function LearningPathsPage() {
                   {assigning ? "Assigning..." : "Assign Path"}
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Assigned users list */}
+      {viewPath && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
+          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
+            <div className="flex items-center justify-between border-b border-slate-200 p-6">
+              <div>
+                <h2 className="text-lg font-semibold text-slate-900">
+                  Assigned users
+                </h2>
+                <p className="mt-1 text-sm text-slate-500">
+                  {viewPath.title} · {viewList.length} user
+                  {viewList.length !== 1 ? "s" : ""}
+                </p>
+              </div>
+              <button
+                onClick={() => setViewPath(null)}
+                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
+              >
+                <X size={20} />
+              </button>
+            </div>
+
+            <div className="border-b border-slate-200 p-4">
+              <div className="relative">
+                <Search
+                  size={18}
+                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
+                />
+                <input
+                  type="text"
+                  value={viewSearch}
+                  onChange={(e) => setViewSearch(e.target.value)}
+                  placeholder="Search assigned users..."
+                  className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm outline-none focus:border-pd-red"
+                />
+              </div>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-3">
+              {loadingView ? (
+                <div className="flex justify-center py-10">
+                  <Loader2 className="animate-spin text-slate-400" size={22} />
+                </div>
+              ) : (
+                (() => {
+                  const byId = new Map(users.map((u) => [u.id, u]));
+                  const rows = viewList
+                    .map((a) => ({ ...a, user: byId.get(a.user_id) }))
+                    .filter((r) => {
+                      const s = viewSearch.toLowerCase();
+                      if (!s) return true;
+                      return (
+                        (r.user?.full_name ?? "").toLowerCase().includes(s) ||
+                        (r.user?.email ?? "").toLowerCase().includes(s)
+                      );
+                    })
+                    .sort((a, b) =>
+                      (a.user?.full_name || a.user?.email || "~").localeCompare(
+                        b.user?.full_name || b.user?.email || "~"
+                      )
+                    );
+                  if (rows.length === 0) {
+                    return (
+                      <p className="py-10 text-center text-sm text-slate-400">
+                        No users found.
+                      </p>
+                    );
+                  }
+                  return rows.map((r) => (
+                    <div
+                      key={r.user_id}
+                      className="flex items-center justify-between rounded-xl px-3 py-3"
+                    >
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-medium text-slate-900">
+                          {r.user?.full_name || r.user?.email || "Unknown user"}
+                        </p>
+                        <p className="truncate text-xs text-slate-500">
+                          {r.user?.email ?? r.user_id}
+                        </p>
+                      </div>
+                      {r.assigned_at && (
+                        <span className="ml-3 shrink-0 text-xs text-slate-400">
+                          {new Date(r.assigned_at).toLocaleDateString(undefined, {
+                            day: "numeric",
+                            month: "short",
+                            year: "numeric",
+                          })}
+                        </span>
+                      )}
+                    </div>
+                  ));
+                })()
+              )}
+            </div>
+
+            <div className="flex justify-end border-t border-slate-200 p-4">
+              <button
+                onClick={() => {
+                  const p = viewPath;
+                  setViewPath(null);
+                  openAssign(p);
+                }}
+                className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-4 py-2.5 text-sm font-semibold text-white hover:bg-pd-red-hover"
+              >
+                <UserPlus size={16} />
+                Assign more
+              </button>
             </div>
           </div>
         </div>
