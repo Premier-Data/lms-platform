@@ -536,7 +536,7 @@ export function CourseViewer({
       className={`mx-auto ${
         activeLesson?.lesson_type === "coding_drill"
           ? "max-w-none"
-          : "max-w-7xl"
+          : "max-w-[2000px]"
       }`}
     >
       <div className="mb-6 flex items-center justify-between">
@@ -592,7 +592,7 @@ export function CourseViewer({
         className={`grid gap-6 ${
           activeLesson?.lesson_type === "coding_drill"
             ? "lg:grid-cols-1"
-            : "lg:grid-cols-[280px_1fr]"
+            : "lg:grid-cols-[300px_1fr]"
         }`}
       >
         {/* Lesson list sidebar — hidden for coding drills to maximise space */}
