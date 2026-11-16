@@ -50,6 +50,54 @@ export default async function DashboardPage() {
     `)
     .eq("user_id", user?.id ?? "");
 
+  // Which courses may the learner actually open right now?
+  //  - In a learning path, only the first course not yet completed (every
+  //    earlier course is done, so it is the next unlocked one).
+  //  - Courses assigned on their own (not part of a path) are always open.
+  const { data: pathAssignments } = await supabase
+    .from("learning_path_assignments")
+    .select("path_id")
+    .eq("user_id", user?.id ?? "");
+  const pathIds = (pathAssignments ?? []).map((p) => p.path_id as string);
+
+  const { data: pathCourseRows } =
+    pathIds.length > 0
+      ? await supabase
+          .from("learning_path_courses")
+          .select("path_id, course_id, position")
+          .in("path_id", pathIds)
+          .order("position", { ascending: true })
+      : { data: [] };
+
+  const statusByCourse = new Map<string, string | null>();
+  for (const a of assignments ?? []) {
+    const c = Array.isArray(a.courses) ? a.courses[0] : a.courses;
+    if (c?.id) statusByCourse.set(c.id as string, a.status as string | null);
+  }
+
+  const openCourseIds = new Set<string>();
+  const coursesInPaths = new Set<string>();
+  const byPath = new Map<string, { course_id: string; position: number }[]>();
+  for (const r of pathCourseRows ?? []) {
+    coursesInPaths.add(r.course_id as string);
+    const list = byPath.get(r.path_id as string) ?? [];
+    list.push({ course_id: r.course_id as string, position: r.position as number });
+    byPath.set(r.path_id as string, list);
+  }
+  for (const list of byPath.values()) {
+    list.sort((a, b) => a.position - b.position);
+    // The next course is the first one that isn't completed yet.
+    const next = list.find((pc) => statusByCourse.get(pc.course_id) !== "completed");
+    if (next && statusByCourse.has(next.course_id)) {
+      openCourseIds.add(next.course_id);
+    }
+  }
+  for (const [courseId, status] of statusByCourse) {
+    if (!coursesInPaths.has(courseId) && status !== "completed") {
+      openCourseIds.add(courseId);
+    }
+  }
+
   const courseIds = (assignments ?? [])
     .map((a) => {
       const c = Array.isArray(a.courses) ? a.courses[0] : a.courses;
@@ -128,9 +176,11 @@ export default async function DashboardPage() {
         </div>
 
         {(() => {
-          const activeCourses = (assignments ?? []).filter(
-            (a) => a.status !== "completed"
-          );
+          const activeCourses = (assignments ?? []).filter((a) => {
+            if (a.status === "completed") return false;
+            const c = Array.isArray(a.courses) ? a.courses[0] : a.courses;
+            return !!c?.id && openCourseIds.has(c.id as string);
+          });
 
           if (activeCourses.length === 0) {
             return (
