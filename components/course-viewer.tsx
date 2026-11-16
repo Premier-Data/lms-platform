@@ -731,6 +731,27 @@ export function CourseViewer({
                     return next;
                   });
                 }}
+                alreadyCompleted={completedLessons.has(activeLesson.id)}
+                onContinue={() =>
+                  isLastLesson ? markComplete() : goToLesson(currentLessonIndex + 1)
+                }
+                continueLabel={
+                  isLastLesson
+                    ? status === "completed"
+                      ? t("completed")
+                      : t("markComplete")
+                    : t("nextLesson")
+                }
+                continueBusy={marking}
+                continueDisabled={
+                  isLastLesson &&
+                  (status === "completed" || !allLessonsComplete)
+                }
+                continueHint={
+                  isLastLesson && status !== "completed"
+                    ? t("finishAll")
+                    : undefined
+                }
               />
             </div>
           ) : (

@@ -166,7 +166,8 @@
     "jumpTo": "Jump to this moment in the video",
     "passMarkInfo": "Pass mark: {n}% accuracy. A click within ±{s}s of the right moment counts as correct.",
     "passedMsg": "Passed — you reached the {n}% pass mark.",
-    "failedMsg": "Not passed yet — you need {n}% accuracy. Try again."
+    "failedMsg": "Not passed yet — you need {n}% accuracy. Try again.",
+    "continue": "Continue"
   },
   "viewer": {
     "backToCourses": "Back to My Courses",

@@ -9,6 +9,7 @@ import {
   CheckCircle2,
   X,
   BarChart3,
+  ChevronRight,
 } from "lucide-react";
 import { DrillVideo, type DrillVideoHandle } from "@/components/drill-video";
 import { DrillSummary } from "@/components/drill-summary";
@@ -27,9 +28,31 @@ type Props = {
   content: string | null;
   /** fired after a successful grade+submit (used to mark the lesson complete) */
   onGraded?: () => void;
+  /**
+   * Shows a "continue" button once the drill is passed (or was already
+   * completed earlier). Used to move on to the next lesson / finish the course.
+   */
+  onContinue?: () => void;
+  continueLabel?: string;
+  continueDisabled?: boolean;
+  /** small note shown under a disabled continue button */
+  continueHint?: string;
+  continueBusy?: boolean;
+  /** the learner already completed this drill in an earlier session */
+  alreadyCompleted?: boolean;
 };
 
-export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
+export function CodingDrillPlayer({
+  blockId,
+  content,
+  onGraded,
+  onContinue,
+  continueLabel,
+  continueDisabled,
+  continueHint,
+  continueBusy,
+  alreadyCompleted,
+}: Props) {
   const td = useTranslations("drill");
   const config = useMemo(() => parseDrillConfig(content), [content]);
   const videoRef = useRef<DrillVideoHandle>(null);
@@ -297,6 +320,25 @@ export function CodingDrillPlayer({ blockId, content, onGraded }: Props) {
           </div>
         </div>
       </div>
+
+      {/* Continue: only once passed (or previously completed) */}
+      {onContinue && (passed || (alreadyCompleted && !result)) && (
+        <div className="flex flex-col items-end gap-1.5 border-t border-slate-200 bg-white px-4 py-3">
+          <button
+            type="button"
+            onClick={onContinue}
+            disabled={continueDisabled || continueBusy}
+            className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-50"
+          >
+            {continueBusy && <Loader2 size={16} className="animate-spin" />}
+            {continueLabel ?? td("continue")}
+            <ChevronRight size={16} />
+          </button>
+          {continueDisabled && continueHint && (
+            <span className="text-xs text-slate-400">{continueHint}</span>
+          )}
+        </div>
+      )}
 
       {/* Result summary */}
       {result && (
