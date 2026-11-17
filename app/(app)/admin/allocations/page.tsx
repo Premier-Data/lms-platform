@@ -211,6 +211,8 @@ export default function AllocationsPage() {
     const parts = [];
     if (data.assigned > 0) parts.push(`${data.assigned} assigned`);
     if (data.skipped > 0) parts.push(`${data.skipped} already assigned`);
+    if (data.emailed > 0) parts.push(`${data.emailed} emailed`);
+    if (data.email_error) parts.push(`email not sent: ${data.email_error}`);
     setAllocateMessage(parts.join(", ") + ".");
     setAllocating(false);
     setSelectedUsers(new Set());
@@ -219,7 +221,7 @@ export default function AllocationsPage() {
     setTimeout(() => {
       setAllocateCourse(null);
       setAllocateMessage("");
-    }, 1500);
+    }, data.email_error ? 6000 : 1500);
   }
 
   const filteredUsers = users.filter(

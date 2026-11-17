@@ -260,5 +260,17 @@
   "video": {
     "watched": "Đã xem video.",
     "watchAll": "Hãy xem hết video để tiếp tục. Không thể tua nhanh."
+  },
+  "assignedPopup": {
+    "titleOne": "Bạn đã được giao nội dung đào tạo mới",
+    "titleMany": "Bạn đã được giao {n} nội dung mới",
+    "subtitle": "Nhấp vào một mục để bắt đầu.",
+    "learningPath": "Lộ trình học",
+    "course": "Khóa học",
+    "pathCourses": "{n} khóa học, hoàn thành theo thứ tự",
+    "due": "Hạn: {date}",
+    "start": "Bắt đầu ngay",
+    "later": "Để sau",
+    "close": "Đóng"
   }
 }

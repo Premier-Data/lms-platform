@@ -260,5 +260,17 @@
   "video": {
     "watched": "Video watched.",
     "watchAll": "Watch the whole video to continue. Skipping ahead is disabled."
+  },
+  "assignedPopup": {
+    "titleOne": "You've been assigned new training",
+    "titleMany": "You've been assigned {n} new items",
+    "subtitle": "Click one to get started.",
+    "learningPath": "Learning path",
+    "course": "Course",
+    "pathCourses": "{n, plural, one {# course} other {# courses}}, completed in order",
+    "due": "Due {date}",
+    "start": "Start now",
+    "later": "Later",
+    "close": "Close"
   }
 }

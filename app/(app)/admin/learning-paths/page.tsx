@@ -207,13 +207,16 @@ export default function LearningPathsPage() {
 
     if (res.ok) {
       setAssignMessage(
-        `${data.assigned_paths} assigned, ${data.assigned_courses} courses allocated.`
+        `${data.assigned_paths} assigned, ${data.assigned_courses} courses allocated` +
+          (data.emailed > 0 ? `, ${data.emailed} emailed` : "") +
+          (data.email_error ? `. Email not sent: ${data.email_error}` : "") +
+          "."
       );
       loadData();
       setTimeout(() => {
         setAssignPath(null);
         setAssignMessage("");
-      }, 1500);
+      }, data.email_error ? 6000 : 1500);
     }
   }
 

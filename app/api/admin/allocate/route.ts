@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
-import { createNotifications } from "@/lib/create-notification";
+import { notifyAssigned } from "@/lib/assignment-notify";
 
 // GET /api/admin/allocate?course_id=... — list user_ids already assigned to a course
 export async function GET(request: Request) {
@@ -126,17 +126,19 @@ export async function POST(request: Request) {
 
   const courseTitle = course?.title ?? "a course";
 
-  await createNotifications(
-    toInsert.map((row) => ({
-      userId: row.user_id,
-      title: "New course assigned",
-      message: `You've been assigned: ${courseTitle}`,
-      link: "/courses",
-    }))
-  );
+  // E-mail + in-app notification for the newly assigned learners.
+  const notified = await notifyAssigned({
+    userIds: toInsert.map((row) => row.user_id),
+    kind: "course",
+    title: courseTitle,
+    link: `/courses/${course_id}`,
+    dueDate: due_date || null,
+  });
 
   return NextResponse.json({
     assigned: toInsert.length,
     skipped: user_ids.length - toInsert.length,
+    emailed: notified.emailed,
+    email_error: notified.emailError,
   });
 }

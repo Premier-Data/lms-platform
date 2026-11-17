@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
+import { notifyAssigned } from "@/lib/assignment-notify";
 
 // GET /api/admin/learning-paths/assign?path_id=...
 // Lists the users already assigned to a learning path.
@@ -95,6 +96,7 @@ export async function POST(request: Request) {
 
   let assignedPaths = 0;
   let assignedCourses = 0;
+  const newlyAssigned: string[] = [];
 
   for (const userId of user_ids) {
     // Check if already assigned this path
@@ -112,6 +114,7 @@ export async function POST(request: Request) {
         user_id: userId,
       });
       assignedPaths++;
+      newlyAssigned.push(userId);
     }
 
     // Create course assignments for each course in the path (skip existing)
@@ -134,9 +137,25 @@ export async function POST(request: Request) {
     }
   }
 
+  // E-mail + in-app notification for users newly given this path.
+  const { data: path } = await admin
+    .from("learning_paths")
+    .select("title")
+    .eq("id", path_id)
+    .maybeSingle();
+  const notified = await notifyAssigned({
+    userIds: newlyAssigned,
+    kind: "path",
+    title: path?.title ?? "a learning path",
+    link: courseIds[0] ? `/courses/${courseIds[0]}` : "/courses",
+    courseCount: courseIds.length,
+  });
+
   return NextResponse.json({
     assigned_paths: assignedPaths,
     assigned_courses: assignedCourses,
     skipped: user_ids.length - assignedPaths,
+    emailed: notified.emailed,
+    email_error: notified.emailError,
   });
 }
