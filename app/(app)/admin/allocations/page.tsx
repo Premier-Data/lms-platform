@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { NotifyModal } from "@/components/notify-modal";
 import {
   Loader2,
   BookOpen,
@@ -46,66 +47,9 @@ export default function AllocationsPage() {
   const [allocating, setAllocating] = useState(false);
   const [allocateMessage, setAllocateMessage] = useState("");
 
-  // Notify modal
+  // Notify modal (shared component)
   const [notifyCourse, setNotifyCourse] = useState<Course | null>(null);
-  const [notifyTemplate, setNotifyTemplate] = useState("reminder");
-  const [notifyUsers, setNotifyUsers] = useState<Set<string>>(new Set());
-  const [notifySearch, setNotifySearch] = useState("");
-  const [customSubject, setCustomSubject] = useState("");
-  const [customMessage, setCustomMessage] = useState("");
-  const [notifying, setNotifying] = useState(false);
-  const [notifyMessage, setNotifyMessage] = useState("");
-
-  async function handleNotify() {
-    if (!notifyCourse || notifyUsers.size === 0) return;
-    setNotifying(true);
-    setNotifyMessage("");
-
-    const res = await fetch("/api/admin/notify", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        user_ids: Array.from(notifyUsers),
-        template: notifyTemplate,
-        course_id: notifyCourse.id,
-        custom_subject: customSubject,
-        custom_message: customMessage,
-      }),
-    });
-
-    const data = await res.json();
-    setNotifying(false);
-
-    if (res.ok) {
-      setNotifyMessage(
-        `${data.sent} sent${data.failed > 0 ? `, ${data.failed} failed` : ""}.`
-      );
-      setTimeout(() => {
-        setNotifyCourse(null);
-        setNotifyMessage("");
-      }, 1800);
-    } else {
-      setNotifyMessage(data.error || "Failed to send notifications.");
-    }
-  }
-
-  function openNotify(course: Course) {
-    setNotifyCourse(course);
-    setNotifyTemplate("reminder");
-    setNotifyUsers(new Set());
-    setNotifySearch("");
-    setCustomSubject("");
-    setCustomMessage("");
-    setNotifyMessage("");
-
-    // Pre-select users already assigned to this course
-    fetch(`/api/admin/allocate?course_id=${course.id}`)
-      .then((r) => (r.ok ? r.json() : null))
-      .then((data) => {
-        if (data?.user_ids) setNotifyUsers(new Set(data.user_ids));
-      })
-      .catch(() => {});
-  }
+  const openNotify = (course: Course) => setNotifyCourse(course);
 
   useEffect(() => {
     async function loadData() {
@@ -496,154 +440,13 @@ export default function AllocationsPage() {
 
       {/* Notify modal */}
       {notifyCourse && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4">
-          <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl bg-white shadow-xl">
-            <div className="flex items-center justify-between border-b border-slate-200 p-6">
-              <div>
-                <h2 className="text-lg font-semibold text-slate-900">
-                  Send notification
-                </h2>
-                <p className="mt-1 text-sm text-slate-500">
-                  {notifyCourse.title}
-                </p>
-              </div>
-              <button
-                onClick={() => setNotifyCourse(null)}
-                className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100 hover:text-slate-700"
-              >
-                <X size={20} />
-              </button>
-            </div>
-
-            <div className="border-b border-slate-200 p-6">
-              <label className="block text-sm font-medium text-slate-700">
-                Template
-              </label>
-              <select
-                value={notifyTemplate}
-                onChange={(e) => setNotifyTemplate(e.target.value)}
-                className="mt-2 w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-pd-red"
-              >
-                <option value="new_course">New course allocated</option>
-                <option value="reminder">Reminder to finish course</option>
-                <option value="due_soon">Course due soon</option>
-                <option value="custom">Custom message</option>
-              </select>
-
-              {notifyTemplate === "custom" && (
-                <div className="mt-4 space-y-3">
-                  <input
-                    type="text"
-                    value={customSubject}
-                    onChange={(e) => setCustomSubject(e.target.value)}
-                    placeholder="Subject"
-                    className="w-full rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-pd-red"
-                  />
-                  <textarea
-                    value={customMessage}
-                    onChange={(e) => setCustomMessage(e.target.value)}
-                    placeholder="Your message..."
-                    rows={3}
-                    className="w-full resize-none rounded-xl border border-slate-300 px-4 py-2.5 text-sm text-slate-900 outline-none transition focus:border-pd-red"
-                  />
-                </div>
-              )}
-
-              <div className="relative mt-4">
-                <Search
-                  size={18}
-                  className="absolute left-3 top-1/2 -translate-y-1/2 text-slate-400"
-                />
-                <input
-                  type="text"
-                  value={notifySearch}
-                  onChange={(e) => setNotifySearch(e.target.value)}
-                  placeholder="Search users..."
-                  className="w-full rounded-xl border border-slate-300 py-2.5 pl-10 pr-4 text-sm text-slate-900 outline-none transition focus:border-pd-red"
-                />
-              </div>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-3">
-              {users
-                .filter(
-                  (u) =>
-                    u.full_name
-                      .toLowerCase()
-                      .includes(notifySearch.toLowerCase()) ||
-                    u.email.toLowerCase().includes(notifySearch.toLowerCase())
-                )
-                .map((u) => {
-                  const selected = notifyUsers.has(u.id);
-                  return (
-                    <button
-                      key={u.id}
-                      type="button"
-                      onClick={() =>
-                        setNotifyUsers((prev) => {
-                          const next = new Set(prev);
-                          if (next.has(u.id)) next.delete(u.id);
-                          else next.add(u.id);
-                          return next;
-                        })
-                      }
-                      className={`flex w-full items-center justify-between rounded-xl px-3 py-3 text-left transition ${
-                        selected ? "bg-pd-red/5" : "hover:bg-slate-50"
-                      }`}
-                    >
-                      <div className="min-w-0">
-                        <p className="truncate text-sm font-medium text-slate-900">
-                          {u.full_name || u.email}
-                        </p>
-                        <p className="truncate text-xs text-slate-500">
-                          {u.email}
-                        </p>
-                      </div>
-                      <div
-                        className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border transition ${
-                          selected
-                            ? "border-pd-red bg-pd-red text-white"
-                            : "border-slate-300"
-                        }`}
-                      >
-                        {selected && <Check size={14} />}
-                      </div>
-                    </button>
-                  );
-                })}
-            </div>
-
-            <div className="border-t border-slate-200 p-6">
-              {notifyMessage && (
-                <div className="mb-4 rounded-xl bg-slate-50 px-4 py-3 text-sm text-slate-700">
-                  {notifyMessage}
-                </div>
-              )}
-              <div className="flex items-center justify-between">
-                <span className="text-sm text-slate-500">
-                  {notifyUsers.size} selected
-                </span>
-                <div className="flex gap-3">
-                  <button
-                    onClick={() => setNotifyCourse(null)}
-                    className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 transition hover:bg-slate-50"
-                  >
-                    Close
-                  </button>
-                  <button
-                    onClick={handleNotify}
-                    disabled={notifying || notifyUsers.size === 0}
-                    className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-4 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:cursor-not-allowed disabled:opacity-50"
-                  >
-                    {notifying && <Loader2 size={16} className="animate-spin" />}
-                    <Bell size={16} />
-                    {notifying ? "Sending..." : "Send"}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
+        <NotifyModal
+          kind="course"
+          id={notifyCourse.id}
+          title={notifyCourse.title}
+          users={users}
+          onClose={() => setNotifyCourse(null)}
+        />
       )}
     </div>
   );

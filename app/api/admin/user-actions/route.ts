@@ -115,7 +115,7 @@ export async function POST(request: Request) {
           fullName: "",
           courseTitle: "",
           customSubject: "Your password has been reset",
-          customMessage: `An administrator has reset your password.<br/><br/>Your temporary password is: <strong style="font-size:18px;color:#ffffff;">${tempPassword}</strong><br/><br/>Please log in with this password. You will be asked to set a new password immediately.`,
+          customHtml: `An administrator has reset your password.<br/><br/>Your temporary password is: <strong style="font-size:18px;color:#ffffff;">${tempPassword}</strong><br/><br/>Please log in with this password. You will be asked to set a new password immediately.`,
         });
       } catch {
         // Password was reset even if the email fails; surface a warning.

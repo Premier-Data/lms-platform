@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { createClient } from "@/lib/supabase/client";
+import { NotifyModal } from "@/components/notify-modal";
 import {
   Loader2,
   Plus,
@@ -13,6 +14,7 @@ import {
   Search,
   Check,
   Route,
+  Bell,
 } from "lucide-react";
 
 type Course = { id: string; title: string; status: string };
@@ -66,6 +68,9 @@ export default function LearningPathsPage() {
   >([]);
   const [viewSearch, setViewSearch] = useState("");
   const [loadingView, setLoadingView] = useState(false);
+
+  // Notify
+  const [notifyPath, setNotifyPath] = useState<Path | null>(null);
 
   // Delete
   const [deletePath, setDeletePath] = useState<Path | null>(null);
@@ -341,6 +346,19 @@ export default function LearningPathsPage() {
                     >
                       <UserPlus size={16} />
                       Assign
+                    </button>
+                    <button
+                      onClick={() => setNotifyPath(path)}
+                      disabled={path.assignment_count === 0}
+                      title={
+                        path.assignment_count === 0
+                          ? "Assign learners first"
+                          : "E-mail learners on this path"
+                      }
+                      className="inline-flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                    >
+                      <Bell size={16} />
+                      Notify
                     </button>
                     <button
                       onClick={() => openEdit(path)}
@@ -739,6 +757,17 @@ export default function LearningPathsPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Notify */}
+      {notifyPath && (
+        <NotifyModal
+          kind="path"
+          id={notifyPath.id}
+          title={notifyPath.title}
+          users={users}
+          onClose={() => setNotifyPath(null)}
+        />
       )}
 
       {/* Delete confirmation */}
