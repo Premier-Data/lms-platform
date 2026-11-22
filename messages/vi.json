@@ -26,7 +26,8 @@
     "storageUsed": "Đã dùng {used} / {limit}",
     "openMenu": "Mở menu",
     "closeMenu": "Đóng menu",
-    "translations": "Bản dịch"
+    "translations": "Bản dịch",
+    "activity": "Hoạt động"
   },
   "header": {
     "welcomeBack": "Chào mừng trở lại"

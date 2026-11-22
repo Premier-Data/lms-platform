@@ -6,6 +6,7 @@ import { NotificationBell } from "@/components/notification-bell";
 import { UserMenu } from "@/components/user-menu";
 import { LanguageToggle } from "@/components/language-toggle";
 import { AssignmentPopup } from "@/components/assignment-popup";
+import { ActivityTracker } from "@/components/activity-tracker";
 import { getNewAssignments } from "@/lib/new-assignments";
 
 export default async function AppLayout({
@@ -56,6 +57,7 @@ export default async function AppLayout({
   return (
     <div className="app-bg flex min-h-screen flex-col lg:flex-row">
       <AssignmentPopup items={newAssignments} />
+      <ActivityTracker />
       <AppSidebar isAdmin={isAdmin} />
 
       <main className="min-w-0 flex-1">
