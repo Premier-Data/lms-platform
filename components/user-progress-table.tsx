@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { formatDuration } from "@/lib/time-tracking";
 
 export type UserProgressRow = {
@@ -32,6 +33,7 @@ type SortKey =
   | "totalTimeSeconds";
 
 export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
+  const router = useRouter();
   const [search, setSearch] = useState("");
   const [sortBy, setSortBy] = useState<SortKey>("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -125,10 +127,15 @@ export function UserProgressTable({ rows }: { rows: UserProgressRow[] }) {
             </thead>
             <tbody className="divide-y divide-slate-100">
               {view.map((u) => (
-                <tr key={u.id} className="hover:bg-slate-50/60">
+                <tr
+                  key={u.id}
+                  onClick={() => router.push(`/admin/learners/${u.id}`)}
+                  title="Open learner profile"
+                  className="cursor-pointer hover:bg-slate-50"
+                >
                   <td className="px-5 py-3">
                     <div>
-                      <p className="font-medium text-slate-900">{u.name}</p>
+                      <p className="font-medium text-slate-900 underline-offset-2 hover:text-pd-red hover:underline">{u.name}</p>
                       <p className="text-xs text-slate-500">{u.email}</p>
                     </div>
                   </td>

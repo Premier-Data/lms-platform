@@ -23,7 +23,7 @@ import { createClient } from "@/lib/supabase/client";
 import { QuestionBlockPlayer } from "@/components/question-block-player";
 import { RestrictedVideo } from "@/components/restricted-video";
 import { useActiveTime } from "@/lib/use-active-time";
-import { readTimeSpent } from "@/lib/time-tracking";
+import { readTimeSpent, readPageTime } from "@/lib/time-tracking";
 import {
   isQuestionSatisfied,
   parseQuestionConfig,
@@ -72,6 +72,8 @@ type SavedProgress = {
   watched_videos?: string[];
   /** active seconds spent on each lesson, keyed by lesson id */
   time_spent?: Record<string, number>;
+  /** active seconds spent on each page, keyed by page id */
+  page_time?: Record<string, number>;
 };
 
 // Something on a page the learner must finish before moving on: a required
@@ -381,6 +383,7 @@ export function CourseViewer({
       question_answers: questionAnswers,
       watched_videos: Array.from(watchedVideos),
       time_spent: { ...timeRef.current },
+      page_time: { ...pageTimeRef.current },
     }),
     [activeLessonId, pageIndex, completedLessons, questionAnswers, watchedVideos]
   );
@@ -389,11 +392,19 @@ export function CourseViewer({
   // Active seconds per lesson live in a ref (so ticking every second doesn't
   // re-render the whole viewer) and are saved with the rest of the progress.
   const timeRef = useRef<Record<string, number>>(readTimeSpent(saved));
+  const pageTimeRef = useRef<Record<string, number>>(readPageTime(saved));
+  const activePageRef = useRef<string | null>(null);
   const timeDirtyRef = useRef(false);
   const activeLessonRef = useRef(activeLessonId);
   const buildProgressRef = useRef(buildProgress);
   useEffect(() => {
     activeLessonRef.current = activeLessonId;
+    activePageRef.current =
+      activeLesson &&
+      activeLesson.lesson_type !== "quiz" &&
+      activeLesson.lesson_type !== "coding_drill"
+        ? lessonPages[pageIndex]?.id ?? null
+        : null;
     buildProgressRef.current = buildProgress;
   });
 
@@ -404,6 +415,13 @@ export function CourseViewer({
       ...timeRef.current,
       [id]: (timeRef.current[id] ?? 0) + 1,
     };
+    const pageId = activePageRef.current;
+    if (pageId) {
+      pageTimeRef.current = {
+        ...pageTimeRef.current,
+        [pageId]: (pageTimeRef.current[pageId] ?? 0) + 1,
+      };
+    }
     timeDirtyRef.current = true;
   });
 

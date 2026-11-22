@@ -128,8 +128,6 @@ export default function ActivityPage() {
   const activeNow = table.filter((x) => x.a.status === "active").length;
   const totalWorked = table.reduce((n, x) => n + x.a.worked_ms, 0);
 
-  const qs = `range=${range}&from=${from}&to=${to}`;
-
   return (
     <div className="mx-auto max-w-7xl">
       <div className="mb-6">
@@ -252,7 +250,7 @@ export default function ActivityPage() {
                     </td>
                     <td className="px-4 py-3 text-right">
                       <Link
-                        href={`/admin/activity/${u.id}?${qs}`}
+                        href={`/admin/learners/${u.id}#activity`}
                         className="inline-flex items-center gap-1.5 rounded-lg border border-slate-300 px-3 py-1.5 text-xs font-semibold text-slate-700 hover:bg-slate-50"
                       >
                         <Activity size={13} />

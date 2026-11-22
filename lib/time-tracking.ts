@@ -1,11 +1,21 @@
-// Helpers for the per-lesson "time spent" a learner accumulates. Time is kept
-// in the learner's course progress JSON as { time_spent: { [lessonId]: seconds } }.
+// Helpers for the "time spent" a learner accumulates. Time is kept in the
+// learner's course progress JSON as
+//   { time_spent: { [lessonId]: seconds }, page_time: { [pageId]: seconds } }.
 
 /** Pull a clean { lessonId: seconds } map out of an assignment's progress JSON. */
 export function readTimeSpent(progress: unknown): Record<string, number> {
+  return readSecondsMap(progress, "time_spent");
+}
+
+/** Pull a clean { pageId: seconds } map out of an assignment's progress JSON. */
+export function readPageTime(progress: unknown): Record<string, number> {
+  return readSecondsMap(progress, "page_time");
+}
+
+function readSecondsMap(progress: unknown, key: string): Record<string, number> {
   const out: Record<string, number> = {};
   if (!progress || typeof progress !== "object") return out;
-  const raw = (progress as { time_spent?: unknown }).time_spent;
+  const raw = (progress as Record<string, unknown>)[key];
   if (!raw || typeof raw !== "object") return out;
   for (const [lessonId, secs] of Object.entries(raw as Record<string, unknown>)) {
     if (typeof secs === "number" && Number.isFinite(secs) && secs > 0) {
