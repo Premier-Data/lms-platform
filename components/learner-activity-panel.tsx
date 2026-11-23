@@ -3,7 +3,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarRange, Loader2 } from "lucide-react";
 import { ActivityTimeline, EVENT_STYLE, type TimelineEvent } from "@/components/activity-timeline";
-import { StatusBadge } from "@/components/activity-status";
+import { StatusBadge, timeAgo } from "@/components/activity-status";
 import {
   BREAK_MS,
   formatDuration,
@@ -115,6 +115,11 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
         {data && data.presence.status !== "offline" && (
           <span className="text-xs text-slate-500">
             in {data.presence.course_title ?? "dashboard / other pages"}
+          </span>
+        )}
+        {data?.presence.last_active_at && (
+          <span className="text-xs text-slate-500" title={new Date(data.presence.last_active_at).toLocaleString()}>
+            · Last active {timeAgo(data.presence.last_active_at)}
           </span>
         )}
       </div>

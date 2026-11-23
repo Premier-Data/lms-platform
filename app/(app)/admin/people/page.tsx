@@ -74,6 +74,7 @@ export default function PeoplePage() {
     | "location"
     | "status"
     | "last_sign_in"
+    | "last_active"
     | "created"
   >("name");
   const [sortDir, setSortDir] = useState<"asc" | "desc">("asc");
@@ -138,6 +139,50 @@ export default function PeoplePage() {
   useEffect(() => {
     fetchUsers();
   }, []);
+
+  // Live "last active" (from activity tracking). Refreshed every 5 minutes
+  // and whenever the admin comes back to this tab.
+  const [presence, setPresence] = useState<
+    Record<string, { last_active_at: string | null; status: "active" | "idle" | "offline" }>
+  >({});
+  const [, setClock] = useState(0);
+  useEffect(() => {
+    let alive = true;
+    async function loadPresence() {
+      try {
+        const res = await fetch("/api/admin/activity/presence");
+        if (!res.ok || !alive) return;
+        const d = await res.json();
+        const map: Record<string, { last_active_at: string | null; status: "active" | "idle" | "offline" }> = {};
+        for (const p of d.presence ?? []) map[p.user_id] = { last_active_at: p.last_active_at, status: p.status };
+        setPresence(map);
+      } catch {
+        // ignore; try again next time
+      }
+    }
+    loadPresence();
+    const t = setInterval(loadPresence, 5 * 60_000);
+    // keep "x min ago" labels current between refreshes
+    const tick = setInterval(() => setClock((n) => n + 1), 60_000);
+    const onFocus = () => {
+      if (document.visibilityState === "visible") loadPresence();
+    };
+    document.addEventListener("visibilitychange", onFocus);
+    return () => {
+      alive = false;
+      clearInterval(t);
+      clearInterval(tick);
+      document.removeEventListener("visibilitychange", onFocus);
+    };
+  }, []);
+
+  /** Latest of tracked activity and last sign-in. */
+  function lastActiveOf(u: { id: string; last_sign_in_at: string | null }): string | null {
+    const a = presence[u.id]?.last_active_at ?? null;
+    const s = u.last_sign_in_at;
+    if (a && s) return a > s ? a : s;
+    return a ?? s;
+  }
 
   async function fetchUsers() {
     setLoading(true);
@@ -368,6 +413,11 @@ export default function PeoplePage() {
           return (a.location || "").localeCompare(b.location || "") * dir;
         case "status":
           return a.status.localeCompare(b.status) * dir;
+        case "last_active": {
+          const av = lastActiveOf(a) ? Date.parse(lastActiveOf(a)!) : 0;
+          const bv = lastActiveOf(b) ? Date.parse(lastActiveOf(b)!) : 0;
+          return (av - bv) * dir;
+        }
         case "last_sign_in": {
           const av = a.last_sign_in_at
             ? new Date(a.last_sign_in_at).getTime()
@@ -516,6 +566,7 @@ export default function PeoplePage() {
           <option value="role">Sort: Role</option>
           <option value="location">Sort: Location</option>
           <option value="status">Sort: Status</option>
+          <option value="last_active">Sort: Last active</option>
           <option value="last_sign_in">Sort: Last sign in</option>
           <option value="created">Sort: Date added</option>
         </select>
@@ -542,6 +593,9 @@ export default function PeoplePage() {
                 Location
               </th>
               <th className="px-6 py-3.5 font-semibold text-slate-700">Status</th>
+              <th className="px-6 py-3.5 font-semibold text-slate-700" title="Refreshes every 5 minutes">
+                Last active
+              </th>
               <th className="px-6 py-3.5 font-semibold text-slate-700">
                 Last sign in
               </th>
@@ -555,7 +609,7 @@ export default function PeoplePage() {
             {filteredUsers.length === 0 ? (
               <tr>
                 <td
-                  colSpan={7}
+                  colSpan={8}
                   className="px-6 py-10 text-center text-slate-400"
                 >
                   No users found.
@@ -627,6 +681,9 @@ export default function PeoplePage() {
                           ? "Archived"
                           : "Invited"}
                     </span>
+                  </td>
+                  <td className="px-6 py-4">
+                    <LastActiveCell iso={lastActiveOf(u)} status={presence[u.id]?.status} />
                   </td>
                   <td className="px-6 py-4 text-slate-500">
                     {u.last_sign_in_at
@@ -1119,5 +1176,39 @@ export default function PeoplePage() {
         </div>
       )}
     </div>
+  );
+}
+
+function LastActiveCell({
+  iso,
+  status,
+}: {
+  iso: string | null;
+  status?: "active" | "idle" | "offline";
+}) {
+  if (status === "active")
+    return (
+      <span className="inline-flex items-center gap-1.5 text-xs font-semibold text-green-700">
+        <span className="h-2 w-2 animate-pulse rounded-full bg-green-500" />
+        Active now
+      </span>
+    );
+  if (!iso) return <span className="text-slate-400">Never</span>;
+  const mins = Math.floor((Date.now() - Date.parse(iso)) / 60_000);
+  const label =
+    mins < 1
+      ? "just now"
+      : mins < 60
+        ? `${mins}m ago`
+        : mins < 24 * 60
+          ? `${Math.floor(mins / 60)}h ago`
+          : new Date(iso).toLocaleDateString();
+  return (
+    <span
+      className={status === "idle" ? "text-amber-700" : "text-slate-500"}
+      title={new Date(iso).toLocaleString()}
+    >
+      {status === "idle" ? `Online · idle (${label})` : label}
+    </span>
   );
 }
