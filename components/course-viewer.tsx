@@ -550,11 +550,14 @@ export function CourseViewer({
   const currentPage = lessonPages[pageIndex];
   const isLastLesson = currentLessonIndex === orderedLessons.length - 1;
   const isLastPage = lessonPages.length === 0 || pageIndex === lessonPages.length - 1;
+  // Coding drills hide the sidebar for space, except in review mode where it is the way out.
+  const wideDrill =
+    activeLesson?.lesson_type === "coding_drill" && status !== "completed";
 
   return (
     <div
       className={`mx-auto ${
-        activeLesson?.lesson_type === "coding_drill"
+        wideDrill
           ? "max-w-none"
           : "max-w-[2000px]"
       }`}
@@ -610,7 +613,7 @@ export function CourseViewer({
 
       <div
         className={`grid gap-6 ${
-          activeLesson?.lesson_type === "coding_drill"
+          wideDrill
             ? "lg:grid-cols-1"
             : "lg:grid-cols-[300px_1fr]"
         }`}
@@ -618,7 +621,7 @@ export function CourseViewer({
         {/* Lesson list sidebar — hidden for coding drills to maximise space */}
         <aside
           className={`rounded-2xl border border-slate-200 bg-white p-3 ${
-            activeLesson?.lesson_type === "coding_drill" ? "hidden" : ""
+            wideDrill ? "hidden" : ""
           }`}
         >
           {modules.map((m, mi) => {
