@@ -237,6 +237,7 @@ export default async function CoursesPage() {
                     // Locked: previous course in path must be completed
                     const isLocked =
                       idx > 0 &&
+                      status !== "completed" &&
                       (() => {
                         const prevCourseId =
                           orderedCourses[idx - 1].course_id;

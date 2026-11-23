@@ -57,6 +57,8 @@ type QuizTakerProps = {
   courseId?: string;
   lessonId: string;
   lessonTitle: string;
+  /** course already completed: retakes are always allowed */
+  reviewMode?: boolean;
   onComplete: (passed: boolean) => void;
 };
 
@@ -108,6 +110,7 @@ export function QuizTaker({
   courseId,
   lessonId,
   lessonTitle,
+  reviewMode = false,
   onComplete,
 }: QuizTakerProps) {
   const t = useTranslations("quiz");
@@ -499,6 +502,7 @@ export function QuizTaker({
       : currentAnswer.selectedOptionIds.length > 0;
 
   const canRetry =
+    reviewMode ||
     config?.max_attempts === null ||
     config?.max_attempts === undefined ||
     previousAttempts < (config?.max_attempts ?? Infinity);

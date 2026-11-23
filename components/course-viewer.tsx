@@ -530,6 +530,8 @@ export function CourseViewer({
     orderedLessons.every((l) => completedLessons.has(l.id));
 
   async function markComplete() {
+    // Reviewing a finished course must never re-complete it or reset completed_at.
+    if (status === "completed") return;
     setMarking(true);
     await supabase
       .from("course_assignments")
@@ -700,6 +702,7 @@ export function CourseViewer({
               courseId={course.id}
               lessonId={activeLesson.id}
               lessonTitle={activeLesson.title}
+              reviewMode={status === "completed"}
               onComplete={(passed) => {
                 if (passed) {
                   // Record the pass (this unlocks later lessons) and mark done

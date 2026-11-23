@@ -26,6 +26,22 @@ export async function POST(request: Request) {
   const cleanCourse = (v: unknown) => (typeof v === "string" && UUID.test(v) ? v : null);
   const cleanPath = (v: unknown) => (typeof v === "string" ? v.slice(0, 300) : null);
 
+  // Time spent reviewing a completed course is not counted towards that course.
+  const reviewCache = new Map<string, boolean>();
+  const isReview = async (courseId: string | null) => {
+    if (!courseId) return false;
+    if (!reviewCache.has(courseId)) {
+      const { data } = await admin
+        .from("course_assignments")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("course_id", courseId)
+        .eq("status", "completed")
+        .limit(1);
+      reviewCache.set(courseId, !!data && data.length > 0);
+    }
+    return reviewCache.get(courseId)!;
+  };
   let lastActive: string | null = null;
 
   const s = body.segment;
@@ -39,7 +55,7 @@ export async function POST(request: Request) {
       const row = {
         started_at: new Date(startC).toISOString(),
         ended_at: new Date(end).toISOString(),
-        course_id: cleanCourse(s.course_id),
+        course_id: (await isReview(cleanCourse(s.course_id))) ? null : cleanCourse(s.course_id),
         path: cleanPath(s.path),
       };
       // Update only this user's own row; insert if it's new.
@@ -65,7 +81,7 @@ export async function POST(request: Request) {
     // A closing tab marks the learner offline straight away; another open tab
     // will bring them back online on its next heartbeat.
     last_seen_at: new Date(body.closing ? now - ONLINE_WINDOW_MS - 1000 : now).toISOString(),
-    course_id: cleanCourse(body.course_id),
+    course_id: (await isReview(cleanCourse(body.course_id))) ? null : cleanCourse(body.course_id),
     path: cleanPath(body.path),
   };
   if (lastActive) presence.last_active_at = lastActive;
