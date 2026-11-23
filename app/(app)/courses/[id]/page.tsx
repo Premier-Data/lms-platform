@@ -99,7 +99,7 @@ export default async function CourseViewerPage({
     .eq("course_id", id)
     .maybeSingle();
 
-  if (pathCourseEntry && pathCourseEntry.position > 0) {
+  if (assignment.status !== "completed" && pathCourseEntry && pathCourseEntry.position > 0) {
     // Find the previous course in this path
     const { data: prevPathCourse } = await supabase
       .from("learning_path_courses")
