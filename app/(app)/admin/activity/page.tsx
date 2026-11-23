@@ -18,6 +18,7 @@ type DirUser = {
 type Row = {
   user_id: string;
   worked_ms: number;
+  event_count?: number;
   first_active: string | null;
   last_active: string | null;
   status: PresenceStatus;
@@ -120,6 +121,7 @@ export default function ActivityPage() {
         (x, y) =>
           STATUS_ORDER[x.a.status] - STATUS_ORDER[y.a.status] ||
           y.a.worked_ms - x.a.worked_ms ||
+          (y.a.event_count ?? 0) - (x.a.event_count ?? 0) ||
           (x.user.full_name || x.user.email).localeCompare(y.user.full_name || y.user.email)
       );
   }, [users, rows, search, showAdmins, statusFilter]);
@@ -224,6 +226,7 @@ export default function ActivityPage() {
                   <th className="px-4 py-3 font-semibold">First active</th>
                   <th className="px-4 py-3 font-semibold">Last active</th>
                   <th className="px-4 py-3 text-right font-semibold">Active time</th>
+                  <th className="px-4 py-3 text-right font-semibold" title="Quiz attempts, drills, completions, messages, sign-ins…">Actions</th>
                   <th className="px-4 py-3" />
                 </tr>
               </thead>
@@ -248,6 +251,7 @@ export default function ActivityPage() {
                     <td className="px-4 py-3 text-right font-semibold tabular-nums text-slate-900">
                       {a.worked_ms ? formatDuration(a.worked_ms) : "—"}
                     </td>
+                    <td className="px-4 py-3 text-right tabular-nums text-slate-600">{a.event_count || "—"}</td>
                     <td className="px-4 py-3 text-right">
                       <Link
                         href={`/admin/learners/${u.id}#activity`}
@@ -261,7 +265,7 @@ export default function ActivityPage() {
                 ))}
                 {table.length === 0 && (
                   <tr>
-                    <td colSpan={7} className="px-4 py-12 text-center text-slate-400">
+                    <td colSpan={8} className="px-4 py-12 text-center text-slate-400">
                       No learners match.
                     </td>
                   </tr>

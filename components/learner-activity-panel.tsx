@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { CalendarRange, Loader2 } from "lucide-react";
-import { ActivityTimeline } from "@/components/activity-timeline";
+import { ActivityTimeline, EVENT_STYLE, type TimelineEvent } from "@/components/activity-timeline";
 import { StatusBadge } from "@/components/activity-status";
 import {
   BREAK_MS,
@@ -14,6 +14,7 @@ import {
 
 type Detail = {
   segments: Segment[];
+  events?: TimelineEvent[];
   courses: Record<string, string>;
   per_course: { course_id: string | null; title: string; ms: number }[];
   presence: {
@@ -73,8 +74,15 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
   const totals = useMemo(() => {
     const worked = days.reduce((n, d) => n + d.workedMs, 0);
     const used = days.reduce((n, d) => n + d.usedMs, 0);
-    return { worked, used, breaks: Math.max(0, used - worked), activeDays: days.filter((d) => d.first !== null).length };
-  }, [days]);
+    // A day counts as active with live tracking OR any action the learner did.
+    const ownEventDays = new Set(
+      (data?.events ?? [])
+        .filter((e) => e.kind !== "assigned")
+        .map((e) => new Date(e.at).toDateString())
+    );
+    const activeDays = days.filter((d) => d.first !== null || ownEventDays.has(new Date(d.day).toDateString())).length;
+    return { worked, used, breaks: Math.max(0, used - worked), activeDays, actions: (data?.events ?? []).filter((e) => e.kind !== "assigned").length };
+  }, [days, data]);
 
   const liveEnd = useMemo(() => {
     if (!data || data.presence.status !== "active" || data.segments.length === 0) return null;
@@ -115,7 +123,7 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
         <Stat label="Active time" value={formatDuration(totals.worked)} tone="text-green-700" />
         <Stat label="On the platform (first → last)" value={formatDuration(totals.used)} />
         <Stat label="Breaks (5+ min idle)" value={formatDuration(totals.breaks)} tone="text-red-500" />
-        <Stat label="Days active" value={String(totals.activeDays)} />
+        <Stat label="Days active" value={`${totals.activeDays}${totals.actions ? ` · ${totals.actions} actions` : ""}`} />
       </div>
 
       <section className="rounded-2xl border border-slate-200 bg-white p-5">
@@ -133,6 +141,12 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
               <CalendarRange size={14} />
               Last 7 days
             </button>
+            <button onClick={() => setPreset(29)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-600 hover:bg-slate-50">
+              30 days
+            </button>
+            <button onClick={() => setPreset(89)} className="rounded-lg border border-slate-300 px-3 py-1.5 text-slate-600 hover:bg-slate-50">
+              90 days
+            </button>
           </div>
         </div>
         {loading ? (
@@ -140,7 +154,7 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
             <Loader2 className="animate-spin text-slate-400" size={24} />
           </div>
         ) : (
-          <ActivityTimeline days={days} courseTitles={data?.courses ?? {}} liveSegmentEnd={liveEnd} />
+          <ActivityTimeline days={days} courseTitles={data?.courses ?? {}} liveSegmentEnd={liveEnd} events={data?.events ?? []} />
         )}
       </section>
 
@@ -178,9 +192,16 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
           <h2 className="border-b border-slate-200 px-5 py-4 font-semibold text-slate-900">Activity log</h2>
           <div className="max-h-[480px] overflow-y-auto">
             {days
-              .filter((d) => d.first !== null)
-              .map((d) => {
-                const items: { kind: "active" | "break"; start: number; end: number; course: string | null }[] = [];
+              .map((d) => ({
+                d,
+                evs: (data?.events ?? []).filter((e) => {
+                  const s = Date.parse(e.at);
+                  return s >= d.day && s < d.day + 24 * 3600_000;
+                }),
+              }))
+              .filter(({ d, evs }) => d.first !== null || evs.length > 0)
+              .map(({ d, evs }) => {
+                const items: { kind: string; start: number; end: number; course: string | null; label?: string }[] = [];
                 const segs = [...d.segments].sort((a, b) => a.start - b.start);
                 let lastEnd: number | null = null;
                 for (const s of segs) {
@@ -190,6 +211,16 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
                   items.push({ kind: "active", start: s.start, end: s.end, course: s.courseId });
                   lastEnd = Math.max(lastEnd ?? 0, s.end);
                 }
+                for (const e of evs) {
+                  items.push({
+                    kind: e.kind,
+                    start: Date.parse(e.at),
+                    end: e.end ? Date.parse(e.end) : Date.parse(e.at),
+                    course: null,
+                    label: e.label,
+                  });
+                }
+                items.sort((a, b) => a.start - b.start || (a.kind === "active" ? -1 : 1));
                 return (
                   <div key={d.day} className="border-b border-slate-100 last:border-0">
                     <p className="sticky top-0 bg-slate-50 px-5 py-2 text-xs font-semibold uppercase tracking-wider text-slate-500">
@@ -200,19 +231,24 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
                         {items.reverse().map((it, i) => (
                           <tr key={i} className={it.kind === "break" ? "bg-red-50/60" : ""}>
                             <td className="w-32 whitespace-nowrap px-5 py-2 tabular-nums text-slate-600">
-                              {time(it.start)}–{time(it.end)}
+                              {it.end > it.start ? `${time(it.start)}–${time(it.end)}` : time(it.start)}
                             </td>
                             <td className="px-2 py-2">
                               {it.kind === "break" ? (
                                 <span className="text-red-500">Break</span>
+                              ) : it.kind !== "active" ? (
+                                <span className="inline-flex items-center gap-2 text-slate-700">
+                                  <span className={`h-2 w-2 shrink-0 rounded-full ${EVENT_STYLE[it.kind]?.dot ?? "bg-slate-400"}`} />
+                                  {it.label}
+                                </span>
                               ) : (
                                 <span className="text-slate-800">
                                   {it.course ? data?.courses[it.course] ?? "Course" : "Dashboard / other pages"}
                                 </span>
                               )}
                             </td>
-                            <td className={`px-5 py-2 text-right tabular-nums ${it.kind === "break" ? "text-red-500" : "font-medium text-green-700"}`}>
-                              {formatDuration(it.end - it.start)}
+                            <td className={`px-5 py-2 text-right tabular-nums ${it.kind === "break" ? "text-red-500" : it.kind === "active" ? "font-medium text-green-700" : "text-slate-400"}`}>
+                              {it.end > it.start ? formatDuration(it.end - it.start) : ""}
                             </td>
                           </tr>
                         ))}
@@ -221,7 +257,9 @@ export function LearnerActivityPanel({ userId }: { userId: string }) {
                   </div>
                 );
               })}
-            {totals.activeDays === 0 && <p className="px-5 py-10 text-center text-sm text-slate-400">No activity in this range.</p>}
+            {totals.activeDays === 0 && (data?.events ?? []).length === 0 && (
+              <p className="px-5 py-10 text-center text-sm text-slate-400">No activity in this range.</p>
+            )}
           </div>
         </section>
       </div>

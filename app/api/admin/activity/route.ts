@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
 import { createAdminClient } from "@/lib/supabase/admin";
 import { mergedLength, presenceStatus } from "@/lib/activity";
+import { loadEvents, SELF_ACTIONS } from "@/lib/activity-events";
 
 async function isAdmin() {
   const supabase = await createClient();
@@ -87,7 +88,12 @@ export async function GET(request: Request) {
   const { data: courses } = courseIds.length
     ? await admin.from("courses").select("id, title").in("id", courseIds)
     : { data: [] };
-  const courseTitles = Object.fromEntries((courses ?? []).map((c) => [c.id, c.title]));
+  const courseTitles: Record<string, string> = Object.fromEntries((courses ?? []).map((c) => [c.id, c.title]));
+
+  // Timestamped records from the rest of the database (quizzes, drills,
+  // completions, messages…) — these also cover dates before live tracking.
+  const { events, courseTitles: eventCourses } = await loadEvents(admin, from, to, userId ?? undefined);
+  Object.assign(courseTitles, eventCourses);
 
   if (userId) {
     const { data: presence } = await admin
@@ -105,6 +111,10 @@ export async function GET(request: Request) {
       perCourse.set(key, list);
     }
     return NextResponse.json({
+      events: events.map(({ user_id: _u, ...e }) => {
+        void _u;
+        return e;
+      }),
       segments: segments.map((s) => ({
         id: s.id,
         started_at: s.started_at,
@@ -147,18 +157,33 @@ export async function GET(request: Request) {
     list.push(s);
     byUser.set(s.user_id, list);
   }
-  const ids = new Set<string>([...byUser.keys(), ...(presences ?? []).map((p) => p.user_id)]);
+  const eventsByUser = new Map<string, number[]>();
+  for (const e of events) {
+    if (!SELF_ACTIONS.includes(e.kind)) continue;
+    const list = eventsByUser.get(e.user_id) ?? [];
+    list.push(Date.parse(e.at));
+    if (e.end) list.push(Date.parse(e.end));
+    eventsByUser.set(e.user_id, list);
+  }
+  const ids = new Set<string>([
+    ...byUser.keys(),
+    ...eventsByUser.keys(),
+    ...(presences ?? []).map((p) => p.user_id),
+  ]);
   const presenceById = new Map((presences ?? []).map((p) => [p.user_id, p]));
 
   const users = [...ids].map((id) => {
     const segs = byUser.get(id) ?? [];
     const parts = segs.map(clip);
     const p = presenceById.get(id);
+    // First / last activity counts tracked time and recorded actions.
+    const times = [...parts.flatMap((x) => [x.start, x.end]), ...(eventsByUser.get(id) ?? [])];
     return {
       user_id: id,
       worked_ms: mergedLength(parts),
-      first_active: parts.length ? new Date(Math.min(...parts.map((x) => x.start))).toISOString() : null,
-      last_active: parts.length ? new Date(Math.max(...parts.map((x) => x.end))).toISOString() : null,
+      event_count: (eventsByUser.get(id) ?? []).length,
+      first_active: times.length ? new Date(Math.min(...times)).toISOString() : null,
+      last_active: times.length ? new Date(Math.max(...times)).toISOString() : null,
       status: presenceStatus(p?.last_seen_at, p?.last_active_at),
       last_seen_at: p?.last_seen_at ?? null,
       last_active_at: p?.last_active_at ?? null,
