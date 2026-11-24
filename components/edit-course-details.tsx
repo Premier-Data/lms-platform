@@ -125,10 +125,14 @@ export function EditCourseDetails({
   });
 
   async function closeModal() {
-    if (editTitle.trim()) {
-      const ok = await autosave.flush();
-      if (!ok) return; // keep the modal open so the failed edit stays visible
-    }
+    const ok = await autosave.flush();
+    if (
+      !ok &&
+      !window.confirm(
+        "Unsaved changes could not be saved. Close and discard them?"
+      )
+    )
+      return;
     setOpen(false);
     if (savedSomething.current) {
       savedSomething.current = false;
