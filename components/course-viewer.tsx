@@ -380,12 +380,15 @@ export function CourseViewer({
       lesson_id: activeLessonId ?? undefined,
       page_index: pageIndex,
       completed_lessons: Array.from(completedLessons),
-      question_answers: questionAnswers,
+      // Reviewing a completed course: re-answers live in session state only;
+      // the originally stored answers are always what gets written back.
+      question_answers:
+        status === "completed" ? (saved.question_answers ?? {}) : questionAnswers,
       watched_videos: Array.from(watchedVideos),
       time_spent: { ...timeRef.current },
       page_time: { ...pageTimeRef.current },
     }),
-    [activeLessonId, pageIndex, completedLessons, questionAnswers, watchedVideos]
+    [activeLessonId, pageIndex, completedLessons, questionAnswers, watchedVideos, status, saved.question_answers]
   );
 
   // --- Time tracking ---
