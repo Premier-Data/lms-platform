@@ -5,6 +5,9 @@ import { createPortal } from "react-dom";
 import { useRouter } from "next/navigation";
 import { MoreHorizontal, Type, Trash2, Loader2, X } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
+import { useAutosave } from "@/lib/use-autosave";
+import { markCourseEdited, UNPUBLISHED_NOTICE } from "@/lib/mark-course-edited";
+import { AutosaveStatus } from "@/components/autosave-status";
 
 type LessonMenuProps = {
   lessonId: string;
@@ -78,27 +81,41 @@ export function LessonMenu({
   }, [menuOpen]);
 
   function unpublishOnEdit() {
-    fetch("/api/admin/unpublish-on-edit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ course_id: courseId }),
-    });
+    void markCourseEdited({ course_id: courseId });
   }
 
-  async function handleRename() {
-    if (!newTitle.trim()) return;
-    setWorking(true);
-    await supabase
-      .from("lessons")
-      .update({ title: newTitle.trim() })
-      .eq("id", lessonId);
-    setWorking(false);
+  const [courseUnpublished, setCourseUnpublished] = useState(false);
+  const savedSomething = useRef(false);
+
+  const autosave = useAutosave({
+    data: { newTitle },
+    enabled: renaming,
+    canSave: (d) => (d.newTitle.trim() ? null : "Title can't be empty"),
+    save: async (d) => {
+      const { error } = await supabase
+        .from("lessons")
+        .update({ title: d.newTitle.trim() })
+        .eq("id", lessonId);
+      if (error) throw new Error(error.message);
+      savedSomething.current = true;
+      if (await markCourseEdited({ course_id: courseId })) {
+        setCourseUnpublished(true);
+      }
+    },
+  });
+
+  async function closeRenaming() {
+    if (newTitle.trim()) {
+      const ok = await autosave.flush();
+      if (!ok) return; // keep the dialog open so the failed edit stays visible
+    }
     setRenaming(false);
-    unpublishOnEdit();
-    onChanged?.();
-    router.refresh();
+    if (savedSomething.current) {
+      savedSomething.current = false;
+      onChanged?.();
+      router.refresh();
+    }
   }
-
   async function handleDelete() {
     setWorking(true);
     await supabase.from("lessons").delete().eq("id", lessonId);
@@ -144,6 +161,7 @@ export function LessonMenu({
                 stop(e);
                 setMenuOpen(false);
                 setNewTitle(title);
+                setCourseUnpublished(false);
                 setRenaming(true);
               }}
               className="flex w-full items-center gap-2.5 px-4 py-2.5 text-sm text-slate-700 transition hover:bg-slate-50"
@@ -175,7 +193,10 @@ export function LessonMenu({
             className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 p-4"
             onClick={stop}
           >
-            <div className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl">
+            <div
+              className="w-full max-w-md rounded-2xl bg-white p-6 shadow-xl"
+              onBlur={() => void autosave.flush()}
+            >
               <div className="mb-5 flex items-center justify-between">
                 <h2 className="text-lg font-semibold text-slate-900">
                   Rename lesson
@@ -183,7 +204,7 @@ export function LessonMenu({
                 <button
                   onClick={(e) => {
                     stop(e);
-                    setRenaming(false);
+                    void closeRenaming();
                   }}
                   className="rounded-lg p-1.5 text-slate-400 hover:bg-slate-100"
                 >
@@ -197,25 +218,35 @@ export function LessonMenu({
                 className="w-full rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none focus:border-pd-red"
                 autoFocus
               />
+              <div className="mt-4 flex justify-end">
+                <AutosaveStatus
+                  status={autosave.status}
+                  errorMessage={autosave.errorMessage}
+                  onRetry={() => void autosave.flush()}
+                  notice={courseUnpublished ? UNPUBLISHED_NOTICE : undefined}
+                />
+              </div>
               <div className="mt-5 flex justify-end gap-3">
                 <button
                   onClick={(e) => {
                     stop(e);
-                    setRenaming(false);
+                    void closeRenaming();
                   }}
                   className="rounded-xl border border-slate-300 px-4 py-2.5 text-sm font-medium text-slate-700 hover:bg-slate-50"
                 >
-                  Cancel
+                  Close
                 </button>
                 <button
                   onClick={(e) => {
                     stop(e);
-                    handleRename();
+                    void closeRenaming();
                   }}
                   disabled={working || !newTitle.trim()}
                   className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white hover:bg-pd-red-hover disabled:opacity-50"
                 >
-                  {working && <Loader2 size={16} className="animate-spin" />}
+                  {autosave.status === "saving" && (
+                    <Loader2 size={16} className="animate-spin" />
+                  )}
                   Save
                 </button>
               </div>

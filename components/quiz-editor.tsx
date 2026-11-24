@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   Plus,
   Trash2,
@@ -14,6 +14,9 @@ import { ImageUpload } from "@/components/image-upload";
 import { VideoUpload } from "@/components/video-upload";
 import { QuestionImportButton } from "@/components/question-import-button";
 import type { ImportedQuestion } from "@/lib/question-import";
+import { useAutosave } from "@/lib/use-autosave";
+import { markCourseEdited, UNPUBLISHED_NOTICE } from "@/lib/mark-course-edited";
+import { AutosaveStatus } from "@/components/autosave-status";
 
 type Option = {
   id?: string;
@@ -62,7 +65,11 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
   const [saving, setSaving] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [error, setError] = useState("");
-  const [savedNotice, setSavedNotice] = useState(false);
+  const [courseUnpublished, setCourseUnpublished] = useState(false);
+  // Flush function of the question form that is currently shown.
+  const flushQuestionRef = useRef<(() => Promise<boolean>) | null>(null);
+  // Question saves run one at a time, in order.
+  const saveQueueRef = useRef<Promise<unknown>>(Promise.resolve());
 
   // Load quiz data
   useEffect(() => {
@@ -83,28 +90,52 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
 
   const activeQuestion = questions.find((q) => q.id === activeQuestionId);
 
-  // Save config
-  async function saveConfig(updates: Partial<QuizConfig>) {
-    const updated = { ...config, ...updates, lesson_id: lessonId };
-    const res = await fetch("/api/admin/quiz", {
-      method: "PUT",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(updated),
-    });
-    if (res.ok) {
-      const data = await res.json();
-      setConfig(data.config);
-      // Unpublish course on edit
-      fetch("/api/admin/unpublish-on-edit", {
-        method: "POST",
+  // Autosave the quiz settings (only the editable fields)
+  const settingsData = config
+    ? {
+        pass_mark: config.pass_mark,
+        time_limit_seconds: config.time_limit_seconds,
+        randomize: config.randomize,
+        max_attempts: config.max_attempts,
+        intro_title: config.intro_title,
+        intro_message: config.intro_message,
+        end_title: config.end_title,
+        end_message: config.end_message,
+      }
+    : null;
+  const settingsAutosave = useAutosave({
+    data: settingsData,
+    enabled: !loading && config !== null,
+    save: async (d) => {
+      const res = await fetch("/api/admin/quiz", {
+        method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ lesson_id: lessonId }),
+        body: JSON.stringify({ ...d, lesson_id: lessonId }),
       });
-    }
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.error || "Failed to save quiz settings");
+      }
+      if (await markCourseEdited({ lesson_id: lessonId })) {
+        setCourseUnpublished(true);
+      }
+    },
+  });
+
+  // Save pending edits of the open question before the list changes.
+  // Returns false when that save failed (the failure stays visible in the form).
+  async function flushOpenQuestion() {
+    return flushQuestionRef.current ? await flushQuestionRef.current() : true;
   }
 
+  async function selectQuestion(id: string) {
+    if (id === activeQuestionId) return;
+    if (!(await flushOpenQuestion())) return;
+    setActiveQuestionId(id);
+  }
   // Add a new question
   async function addQuestion() {
+    if (!(await flushOpenQuestion())) return;
     setSaving(true);
     const res = await fetch("/api/admin/quiz", {
       method: "POST",
@@ -164,18 +195,14 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
     }
     setQuestions((prev) => [...prev, ...created]);
     if (created.length > 0) setActiveQuestionId(created[0].id);
-    fetch("/api/admin/unpublish-on-edit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lesson_id: lessonId }),
-    });
+    if (await markCourseEdited({ lesson_id: lessonId })) {
+      setCourseUnpublished(true);
+    }
   }
 
-  // Save the current question
-  const saveQuestion = useCallback(
-    async (question: Question) => {
-      setSaving(true);
-      setError("");
+  // Save a question. Calls are queued so two saves never overlap.
+  function saveQuestion(question: Question): Promise<void> {
+    const run = saveQueueRef.current.then(async () => {
       const res = await fetch("/api/admin/quiz", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -196,42 +223,45 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
           })),
         }),
       });
-      if (res.ok) {
-        const data = await res.json();
-        setQuestions((prev) =>
-          prev.map((q) => (q.id === data.question.id ? data.question : q))
-        );
-        setSavedNotice(true);
-        setTimeout(() => setSavedNotice(false), 2000);
-        // Unpublish course on edit
-        fetch("/api/admin/unpublish-on-edit", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ lesson_id: lessonId }),
-        });
-      } else {
-        const data = await res.json();
-        setError(data.error || "Failed to save question");
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        const message = data.error || "Failed to save question";
+        setError(message);
+        throw new Error(message);
       }
-      setSaving(false);
-    },
-    [lessonId]
-  );
+      setError("");
+      if (await markCourseEdited({ lesson_id: lessonId })) {
+        setCourseUnpublished(true);
+      }
+    });
+    saveQueueRef.current = run.catch(() => {});
+    return run;
+  }
+
+  // Keep the latest unsaved draft of a question in the list
+  function updateDraft(draft: Question) {
+    setQuestions((prev) => prev.map((q) => (q.id === draft.id ? draft : q)));
+  }
 
   // Delete a question
   async function deleteQuestion(questionId: string) {
+    // Wait for any save of this question to finish first
+    await saveQueueRef.current;
     const res = await fetch(
       `/api/admin/quiz?question_id=${questionId}`,
       { method: "DELETE" }
     );
     if (res.ok) {
-      setQuestions((prev) => prev.filter((q) => q.id !== questionId));
+      const remaining = questions.filter((q) => q.id !== questionId);
+      setQuestions(remaining);
       if (activeQuestionId === questionId) {
-        setActiveQuestionId(questions[0]?.id ?? null);
+        setActiveQuestionId(remaining[0]?.id ?? null);
+      }
+      if (await markCourseEdited({ lesson_id: lessonId })) {
+        setCourseUnpublished(true);
       }
     }
   }
-
   if (loading) {
     return (
       <div className="flex items-center justify-center py-20">
@@ -255,7 +285,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
           {questions.map((q, idx) => (
             <button
               key={q.id}
-              onClick={() => setActiveQuestionId(q.id)}
+              onClick={() => void selectQuestion(q.id)}
               className={`mb-1 flex w-full items-center gap-2 rounded-lg px-3 py-2.5 text-left text-sm transition ${
                 q.id === activeQuestionId
                   ? "bg-pd-red/10 font-medium text-pd-red"
@@ -305,10 +335,14 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
             question={activeQuestion}
             onSave={saveQuestion}
             onDelete={() => deleteQuestion(activeQuestion.id)}
-            saving={saving}
+            onDraftChange={updateDraft}
+            registerFlush={(fn) => {
+              flushQuestionRef.current = fn;
+            }}
+            notice={courseUnpublished ? UNPUBLISHED_NOTICE : undefined}
           />
         )}
-        {error && (
+        {error && !activeQuestion && (
           <div className="border-t border-red-100 bg-red-50 px-4 py-2 text-sm text-red-600">
             {error}
           </div>
@@ -322,6 +356,14 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
             <Settings size={15} />
             Quiz Settings
           </h3>
+          <div className="mt-2">
+            <AutosaveStatus
+              status={settingsAutosave.status}
+              errorMessage={settingsAutosave.errorMessage}
+              onRetry={() => void settingsAutosave.flush()}
+              notice={courseUnpublished ? UNPUBLISHED_NOTICE : undefined}
+            />
+          </div>
         </div>
 
         {config && (
@@ -338,7 +380,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                   onChange={(e) =>
                     setConfig({ ...config, intro_title: e.target.value || null })
                   }
-                  onBlur={() => saveConfig({ intro_title: config.intro_title })}
+                  onBlur={() => void settingsAutosave.flush()}
                   placeholder="Title (e.g. Welcome to the Quiz)"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
                 />
@@ -347,7 +389,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                   onChange={(e) =>
                     setConfig({ ...config, intro_message: e.target.value || null })
                   }
-                  onBlur={() => saveConfig({ intro_message: config.intro_message })}
+                  onBlur={() => void settingsAutosave.flush()}
                   rows={2}
                   placeholder="Message shown before the quiz starts..."
                   className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
@@ -365,7 +407,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                   onChange={(e) =>
                     setConfig({ ...config, end_title: e.target.value || null })
                   }
-                  onBlur={() => saveConfig({ end_title: config.end_title })}
+                  onBlur={() => void settingsAutosave.flush()}
                   placeholder="Title (e.g. Quiz Complete!)"
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
                 />
@@ -374,7 +416,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                   onChange={(e) =>
                     setConfig({ ...config, end_message: e.target.value || null })
                   }
-                  onBlur={() => saveConfig({ end_message: config.end_message })}
+                  onBlur={() => void settingsAutosave.flush()}
                   rows={2}
                   placeholder="Message shown after the quiz ends..."
                   className="w-full resize-none rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
@@ -394,7 +436,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                     const v = parseInt(e.target.value) || 0;
                     setConfig({ ...config, pass_mark: v });
                   }}
-                  onBlur={() => saveConfig({ pass_mark: config.pass_mark })}
+                  onBlur={() => void settingsAutosave.flush()}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
                 />
               </div>
@@ -414,11 +456,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                       : null;
                     setConfig({ ...config, time_limit_seconds: v });
                   }}
-                  onBlur={() =>
-                    saveConfig({
-                      time_limit_seconds: config.time_limit_seconds,
-                    })
-                  }
+                  onBlur={() => void settingsAutosave.flush()}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
                 />
                 <p className="mt-1 text-[11px] text-slate-400">
@@ -441,9 +479,7 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
                       : null;
                     setConfig({ ...config, max_attempts: v });
                   }}
-                  onBlur={() =>
-                    saveConfig({ max_attempts: config.max_attempts })
-                  }
+                  onBlur={() => void settingsAutosave.flush()}
                   className="w-full rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
                 />
                 <p className="mt-1 text-[11px] text-slate-400">
@@ -474,13 +510,6 @@ export function QuizEditor({ lessonId, lessonTitle }: QuizEditorProps) {
         )}
       </div>
 
-      {/* Save confirmation toast */}
-      {savedNotice && (
-        <div className="fixed bottom-6 right-6 z-50 flex items-center gap-2 rounded-xl bg-green-600 px-4 py-3 text-sm font-medium text-white shadow-lg">
-          <Check size={16} />
-          Question saved
-        </div>
-      )}
     </div>
   );
 }
@@ -490,23 +519,42 @@ function QuestionForm({
   question,
   onSave,
   onDelete,
-  saving,
+  onDraftChange,
+  registerFlush,
+  notice,
 }: {
   question: Question;
-  onSave: (q: Question) => void;
+  onSave: (q: Question) => Promise<void>;
   onDelete: () => void;
-  saving: boolean;
+  onDraftChange: (q: Question) => void;
+  registerFlush: (fn: (() => Promise<boolean>) | null) => void;
+  notice?: string;
 }) {
   const [q, setQ] = useState<Question>(question);
   // Which option's image uploader is currently open (null = none).
   const [imageOptionIdx, setImageOptionIdx] = useState<number | null>(null);
 
-  // Sync if the parent provides a new question (after save returns updated data)
-  useEffect(() => {
-    setQ(question);
-    setImageOptionIdx(null);
-  }, [question]);
+  const autosave = useAutosave({
+    data: q,
+    // Short answers: drop blank accepted answers in the payload only.
+    save: (d) =>
+      onSave(
+        d.question_type === "short_answer"
+          ? { ...d, quiz_options: d.quiz_options.filter((o) => o.content.trim()) }
+          : d
+      ),
+  });
+  const { flush, discard } = autosave;
 
+  useEffect(() => {
+    registerFlush(flush);
+    return () => registerFlush(null);
+  }, [registerFlush, flush]);
+
+  // Keep the parent list in sync with the latest draft
+  useEffect(() => {
+    if (q !== question) onDraftChange(q);
+  }, [q, question, onDraftChange]);
   function updateOption(idx: number, updates: Partial<Option>) {
     const opts = [...q.quiz_options];
     opts[idx] = { ...opts[idx], ...updates };
@@ -557,16 +605,6 @@ function QuestionForm({
     setQ({ ...q, question_type: type, quiz_options: opts });
   }
 
-  // Short answers: drop blank accepted answers when saving.
-  function save() {
-    if (q.question_type === "short_answer") {
-      const answers = q.quiz_options.filter((o) => o.content.trim());
-      onSave({ ...q, quiz_options: answers });
-    } else {
-      onSave(q);
-    }
-  }
-
   function removeOption(idx: number) {
     setQ({
       ...q,
@@ -575,7 +613,10 @@ function QuestionForm({
   }
 
   return (
-    <div className="flex flex-1 flex-col bg-white text-slate-900">
+    <div
+      className="flex flex-1 flex-col bg-white text-slate-900"
+      onBlur={() => void flush()}
+    >
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
         {/* Question type selector */}
         <div className="flex items-center gap-3">
@@ -859,22 +900,35 @@ function QuestionForm({
       <div className="flex items-center justify-between border-t border-slate-200 px-6 py-4">
         <button
           type="button"
-          onClick={onDelete}
+          onClick={() => {
+            discard();
+            onDelete();
+          }}
           className="inline-flex items-center gap-1.5 text-sm font-medium text-red-500 hover:text-red-700"
         >
           <Trash2 size={15} />
           Delete question
         </button>
 
-        <button
-          type="button"
-          onClick={save}
-          disabled={saving}
-          className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:opacity-50"
-        >
-          {saving && <Loader2 size={16} className="animate-spin" />}
-          {saving ? "Saving..." : "Save question"}
-        </button>
+        <div className="flex items-center gap-4">
+          <AutosaveStatus
+            status={autosave.status}
+            errorMessage={autosave.errorMessage}
+            onRetry={() => void flush()}
+            notice={notice}
+          />
+          <button
+            type="button"
+            onClick={() => void flush()}
+            disabled={autosave.status === "saving"}
+            className="inline-flex items-center gap-2 rounded-xl bg-pd-red px-5 py-2.5 text-sm font-semibold text-white transition hover:bg-pd-red-hover disabled:opacity-50"
+          >
+            {autosave.status === "saving" && (
+              <Loader2 size={16} className="animate-spin" />
+            )}
+            {autosave.status === "saving" ? "Saving..." : "Save question"}
+          </button>
+        </div>
       </div>
     </div>
   );

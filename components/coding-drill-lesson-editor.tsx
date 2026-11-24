@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation";
 import { Save, Loader2 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { CodingDrillEditor } from "@/components/coding-drill-editor";
+import { useAutosave } from "@/lib/use-autosave";
+import { markCourseEdited, UNPUBLISHED_NOTICE } from "@/lib/mark-course-edited";
+import { AutosaveStatus } from "@/components/autosave-status";
 
 type Props = {
   lessonId: string;
@@ -23,44 +26,47 @@ export function CodingDrillLessonEditor({
   const router = useRouter();
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState<string>(initialContent ?? "");
-  const [saving, setSaving] = useState(false);
   const [message, setMessage] = useState("");
+  const [courseUnpublished, setCourseUnpublished] = useState(false);
+
+  async function persist(snapshot: { title: string; content: string }) {
+    const supabase = createClient();
+    // Auto mode never writes a blank title
+    const update: { title?: string; content: string } = {
+      content: snapshot.content,
+    };
+    if (snapshot.title.trim()) update.title = snapshot.title.trim();
+    const { error } = await supabase
+      .from("lessons")
+      .update(update)
+      .eq("id", lessonId);
+    if (error) throw new Error(error.message);
+
+    // Unpublish course on edit, matching other editors.
+    const unpublished = await markCourseEdited({ lesson_id: lessonId });
+    if (unpublished) {
+      setCourseUnpublished(true);
+      router.refresh();
+    }
+  }
+
+  const autosave = useAutosave({
+    data: { title, content },
+    save: persist,
+  });
+  const saving = autosave.status === "saving";
 
   async function handleSave() {
     if (!title.trim()) {
       setMessage("Please enter a lesson title.");
       return;
     }
-    setSaving(true);
     setMessage("");
-
-    const supabase = createClient();
-    const { error } = await supabase
-      .from("lessons")
-      .update({ title: title.trim(), content })
-      .eq("id", lessonId);
-
-    if (error) {
-      setMessage(error.message);
-      setSaving(false);
-      return;
-    }
-
-    setMessage("Drill saved.");
-    setSaving(false);
-
-    // Unpublish course on edit, matching other editors.
-    fetch("/api/admin/unpublish-on-edit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lesson_id: lessonId }),
-    });
-
-    router.refresh();
+    const ok = await autosave.flush();
+    if (ok) router.refresh();
   }
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onBlur={() => void autosave.flush()}>
       {/* Lesson title */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -83,6 +89,12 @@ export function CodingDrillLessonEditor({
         {message && (
           <span className="text-sm text-slate-500">{message}</span>
         )}
+        <AutosaveStatus
+          status={autosave.status}
+          errorMessage={autosave.errorMessage}
+          onRetry={() => void autosave.flush()}
+          notice={courseUnpublished ? UNPUBLISHED_NOTICE : undefined}
+        />
         <button
           type="button"
           onClick={handleSave}

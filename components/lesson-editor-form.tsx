@@ -20,6 +20,9 @@ import {
 } from "lucide-react";
 import { RichTextEditor } from "@/components/rich-text-editor";
 import { createClient } from "@/lib/supabase/client";
+import { useAutosave } from "@/lib/use-autosave";
+import { markCourseEdited, UNPUBLISHED_NOTICE } from "@/lib/mark-course-edited";
+import { AutosaveStatus } from "@/components/autosave-status";
 import { ImageUpload } from "@/components/image-upload";
 import { LessonPreview } from "@/components/lesson-preview";
 import { VideoUpload } from "@/components/video-upload";
@@ -100,7 +103,7 @@ export function LessonEditorForm({
         : null
     );
 
-  const [isSaving, setIsSaving] = useState(false);
+  const [courseUnpublished, setCourseUnpublished] = useState(false);
   const [isDeleting, setIsDeleting] = useState(false);
   const [message, setMessage] = useState("");
 
@@ -189,7 +192,7 @@ export function LessonEditorForm({
     setMessage(
       `Imported ${imported.length} question${
         imported.length === 1 ? "" : "s"
-      }. Click Save Lesson to keep them.`
+      }. They will be saved automatically.`
     );
   }
 
@@ -369,6 +372,89 @@ export function LessonEditorForm({
     );
   }
 
+  async function persistLesson(
+    snapshot: { title: string; pages: LessonPage[]; blocks: LessonBlock[] },
+    mode: "auto" | "manual"
+  ) {
+    const supabase = createClient();
+    const { title: snapTitle, pages: snapPages, blocks: snapBlocks } = snapshot;
+
+    // Save lesson title (auto mode never writes a blank title)
+    if (mode === "manual" || snapTitle.trim()) {
+      const { error: lessonError } = await supabase
+        .from("lessons")
+        .update({ title: snapTitle.trim() })
+        .eq("id", lesson.id);
+      if (lessonError) throw new Error(lessonError.message);
+    }
+
+    if (snapPages.length === 0) return;
+
+    // Upsert pages by stable id
+    const { error: pagesError } = await supabase.from("lesson_pages").upsert(
+      snapPages.map((page, index) => ({
+        id: page.id,
+        lesson_id: lesson.id,
+        title: page.title.trim() || `Page ${index + 1}`,
+        position: index,
+      })),
+      { onConflict: "id" }
+    );
+    if (pagesError) throw new Error(pagesError.message);
+
+    // Upsert blocks by stable id
+    if (snapBlocks.some((block) => !block.page_id)) {
+      throw new Error("Could not match one or more blocks to a lesson page.");
+    }
+    if (snapBlocks.length > 0) {
+      const { error: blocksError } = await supabase
+        .from("lesson_blocks")
+        .upsert(
+          snapBlocks.map((block) => ({
+            id: block.id,
+            lesson_id: lesson.id,
+            page_id: block.page_id,
+            block_type: block.block_type,
+            content: block.content ?? "",
+            position: block.position,
+          })),
+          { onConflict: "id" }
+        );
+      if (blocksError) throw new Error(blocksError.message);
+    }
+
+    // Remove rows that were deleted in the editor (blocks first, then pages)
+    const blockIds = snapBlocks.map((b) => b.id);
+    let delBlocks = supabase.from("lesson_blocks").delete().eq("lesson_id", lesson.id);
+    if (blockIds.length > 0) {
+      delBlocks = delBlocks.not("id", "in", `(${blockIds.join(",")})`);
+    }
+    const { error: delBlocksError } = await delBlocks;
+    if (delBlocksError) throw new Error(delBlocksError.message);
+
+    const pageIds = snapPages.map((p) => p.id);
+    const { error: delPagesError } = await supabase
+      .from("lesson_pages")
+      .delete()
+      .eq("lesson_id", lesson.id)
+      .not("id", "in", `(${pageIds.join(",")})`);
+    if (delPagesError) throw new Error(delPagesError.message);
+
+    // Unpublish course on edit
+    const unpublished = await markCourseEdited({ lesson_id: lesson.id });
+    if (unpublished) {
+      setCourseUnpublished(true);
+      router.refresh();
+    }
+  }
+
+  const autosave = useAutosave({
+    data: { title, pages, blocks },
+    save: (snapshot) => persistLesson(snapshot, "auto"),
+  });
+
+  const isSaving = autosave.status === "saving";
+
   async function handleSave() {
     if (!title.trim()) {
       setMessage(
@@ -399,144 +485,15 @@ export function LessonEditorForm({
       }
     }
 
-    setIsSaving(true);
     setMessage("");
-
-    const supabase = createClient();
-
-    // Save lesson title
-    const { error: lessonError } = await supabase
-      .from("lessons")
-      .update({
-        title: title.trim(),
-      })
-      .eq("id", lesson.id);
-
-    if (lessonError) {
-      setMessage(lessonError.message);
-      setIsSaving(false);
-      return;
-    }
-    /*
-      Delete existing blocks first.
-      Pages are recreated below.
-    */
-    const { error: deleteBlocksError } =
-      await supabase
-        .from("lesson_blocks")
-        .delete()
-        .eq("lesson_id", lesson.id);
-
-    if (deleteBlocksError) {
-      setMessage(deleteBlocksError.message);
-      setIsSaving(false);
-      return;
-    }
-
-    // Delete existing pages
-    const { error: deletePagesError } =
-      await supabase
-        .from("lesson_pages")
-        .delete()
-        .eq("lesson_id", lesson.id);
-
-    if (deletePagesError) {
-      setMessage(deletePagesError.message);
-      setIsSaving(false);
-      return;
-    }
-
-    // Create pages and map temporary IDs
-    const pageIdMap = new Map<string, string>();
-
-    for (let index = 0; index < pages.length; index++) {
-      const page = pages[index];
-
-      const { data: newPage, error: pageError } =
-        await supabase
-          .from("lesson_pages")
-          .insert({
-            lesson_id: lesson.id,
-            title:
-              page.title.trim() ||
-              `Page ${index + 1}`,
-            position: index,
-          })
-          .select()
-          .single();
-
-      if (pageError || !newPage) {
-        setMessage(
-          pageError?.message ||
-          "Could not save page."
-        );
-        setIsSaving(false);
-        return;
-      }
-
-      pageIdMap.set(
-        page.id,
-        newPage.id
-      );
-    }
-
-    // Save blocks
-    // Save blocks
-    if (blocks.length > 0) {
-      const blocksToInsert = blocks.map((block) => {
-        const savedPageId = block.page_id
-          ? pageIdMap.get(block.page_id)
-          : null;
-
-        return {
-          id: block.id,
-          lesson_id: lesson.id,
-          page_id: savedPageId,
-          block_type: block.block_type,
-          content: block.content ?? "",
-          position: block.position,
-        };
-      });
-
-      const invalidBlock = blocksToInsert.find(
-        (block) => !block.page_id
-      );
-
-      if (invalidBlock) {
-        setMessage(
-          "Could not match one or more blocks to a lesson page."
-        );
-        setIsSaving(false);
-        return;
-      }
-
-      const { error: blocksError } =
-        await supabase
-          .from("lesson_blocks")
-          .insert(blocksToInsert);
-
-      if (blocksError) {
-        setMessage(blocksError.message);
-        setIsSaving(false);
-        return;
-      }
-    }
-    setMessage(
-      "Lesson saved successfully."
-    );
-
-    setIsSaving(false);
-
-    // Unpublish course on edit
-    fetch("/api/admin/unpublish-on-edit", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ lesson_id: lesson.id }),
-    });
-
-    router.refresh();
+    const ok = await autosave.flush();
+    if (ok) router.refresh();
   }
 
+  function selectPage(id: string | null) {
+    setSelectedPageId(id);
+    void autosave.flush();
+  }
   async function handleDelete() {
     const confirmed = window.confirm(
       "Are you sure you want to delete this lesson?"
@@ -558,6 +515,8 @@ export function LessonEditorForm({
       setIsDeleting(false);
       return;
     }
+
+    autosave.discard();
 
     router.push(
       `/admin/courses/${courseId}`
@@ -594,7 +553,7 @@ export function LessonEditorForm({
     );
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6" onBlur={() => void autosave.flush()}>
       {/* Lesson title */}
       <div className="rounded-2xl border border-slate-200 bg-white p-6">
         <label className="mb-2 block text-sm font-medium text-slate-700">
@@ -657,11 +616,7 @@ export function LessonEditorForm({
 
                       <button
                         type="button"
-                        onClick={() =>
-                          setSelectedPageId(
-                            page.id
-                          )
-                        }
+                        onClick={() => selectPage(page.id)}
                         className="flex flex-1 items-center gap-3 px-2 py-3 text-left"
                       >
                         <FileText
@@ -704,7 +659,7 @@ export function LessonEditorForm({
                     lessonId={lesson.id}
                     showGate
                     onImport={importQuestions}
-                    hint="Each question in the sheet becomes its own page with one question on it. Nothing is saved until you click Save Lesson."
+                    hint="Each question in the sheet becomes its own page with one question on it. Changes are saved automatically."
                   />
                 </div>
               </div>
@@ -981,7 +936,7 @@ export function LessonEditorForm({
             pages={pages}
             blocks={blocks}
             activePageId={selectedPageId ?? undefined}
-            onNavigate={setSelectedPageId}
+            onNavigate={selectPage}
           />
         </aside>
       </div>
@@ -1006,6 +961,13 @@ export function LessonEditorForm({
               {message}
             </span>
           )}
+
+          <AutosaveStatus
+            status={autosave.status}
+            errorMessage={autosave.errorMessage}
+            onRetry={() => void autosave.flush()}
+            notice={courseUnpublished ? UNPUBLISHED_NOTICE : undefined}
+          />
 
           <button
             type="button"
