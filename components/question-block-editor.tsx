@@ -116,7 +116,7 @@ export function QuestionBlockEditor({ value, onChange, lessonId }: Props) {
   const gate = GATE_OPTIONS.find((g) => g.value === config.gate);
 
   return (
-    <div className="space-y-5">
+    <div className="space-y-5 bg-white text-slate-900">
       {/* Type + progression rule */}
       <div className="flex flex-wrap items-center gap-3">
         <select

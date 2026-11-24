@@ -575,14 +575,14 @@ function QuestionForm({
   }
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex flex-1 flex-col bg-white text-slate-900">
       <div className="flex-1 overflow-y-auto p-6 space-y-5">
         {/* Question type selector */}
         <div className="flex items-center gap-3">
           <select
             value={q.question_type}
             onChange={(e) => changeType(e.target.value)}
-            className="rounded-lg border border-slate-300 px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
+            className="rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm text-slate-900 outline-none focus:border-pd-red"
           >
             <option value="single_choice">Single Choice</option>
             <option value="multiple_choice">Multiple Choice</option>
@@ -598,7 +598,7 @@ function QuestionForm({
               onChange={(e) =>
                 setQ({ ...q, points: parseInt(e.target.value) || 1 })
               }
-              className="w-16 rounded-lg border border-slate-300 px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-pd-red"
+              className="w-16 rounded-lg border border-slate-300 bg-white px-2 py-1.5 text-sm text-slate-900 outline-none focus:border-pd-red"
             />
           </div>
         </div>
@@ -658,7 +658,7 @@ function QuestionForm({
             onChange={(e) => setQ({ ...q, question_text: e.target.value })}
             rows={3}
             placeholder="Type your question here..."
-            className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-slate-900 outline-none transition focus:border-pd-red"
+            className="w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-slate-900 outline-none transition focus:border-pd-red"
           />
         </div>
 
@@ -846,7 +846,7 @@ function QuestionForm({
             onChange={(e) => setQ({ ...q, explanation: e.target.value || null })}
             rows={3}
             placeholder="e.g. Enter message for feedback on the correct answer..."
-            className="w-full resize-none rounded-xl border border-slate-300 px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-pd-red"
+            className="w-full resize-none rounded-xl border border-slate-300 bg-white px-4 py-3 text-sm text-slate-900 outline-none transition focus:border-pd-red"
           />
           <p className="mt-1 text-[11px] text-slate-400">
             Custom message displayed to the learner after they submit their
