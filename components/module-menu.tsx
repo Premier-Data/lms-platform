@@ -110,10 +110,8 @@ export function ModuleMenu({
   });
 
   async function closeEditing() {
-    if (newTitle.trim()) {
-      const ok = await autosave.flush();
-      if (!ok) return; // keep the dialog open so the failed edit stays visible
-    }
+    const ok = await autosave.flush();
+    if (!ok && !window.confirm("Unsaved changes could not be saved. Close and discard them?")) return;
     setEditing(false);
     if (savedSomething.current) {
       savedSomething.current = false;

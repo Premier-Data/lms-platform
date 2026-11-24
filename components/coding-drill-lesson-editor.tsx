@@ -53,6 +53,7 @@ export function CodingDrillLessonEditor({
   const autosave = useAutosave({
     data: { title, content },
     save: persist,
+    canSave: (d) => (d.title.trim() ? null : "Please enter a lesson title."),
   });
   const saving = autosave.status === "saving";
 

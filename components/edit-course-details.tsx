@@ -173,7 +173,10 @@ export function EditCourseDetails({
               </button>
             </div>
 
-            <div className="flex-1 space-y-4 overflow-y-auto p-6">
+            <fieldset
+              disabled={!categoriesDone}
+              className="min-w-0 flex-1 space-y-4 overflow-y-auto border-0 p-6"
+            >
               <div>
                 <label className="block text-sm font-medium text-slate-700">
                   Course title
@@ -198,7 +201,7 @@ export function EditCourseDetails({
                 </div>
               </div>
 
-              {categoriesAvailable && (
+              {categoriesAvailable && linksFetched && (
                 <div>
                   <label className="block text-sm font-medium text-slate-700">
                     Categories
@@ -238,7 +241,7 @@ export function EditCourseDetails({
                 />
               </div>
 
-            </div>
+            </fieldset>
 
             <div className="flex shrink-0 items-center justify-end gap-3 border-t border-slate-200 p-6">
               <AutosaveStatus

@@ -388,7 +388,6 @@ export function LessonEditorForm({
       if (lessonError) throw new Error(lessonError.message);
     }
 
-    if (snapPages.length === 0) return;
 
     // Upsert pages by stable id
     const { error: pagesError } = await supabase.from("lesson_pages").upsert(
@@ -451,6 +450,12 @@ export function LessonEditorForm({
   const autosave = useAutosave({
     data: { title, pages, blocks },
     save: (snapshot) => persistLesson(snapshot, "auto"),
+    canSave: (d) =>
+      !d.title.trim()
+        ? "Please enter a lesson title."
+        : d.pages.length === 0
+          ? "A lesson needs at least one page."
+          : null,
   });
 
   const isSaving = autosave.status === "saving";
